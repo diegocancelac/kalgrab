@@ -1,0 +1,14 @@
+# Supply-chain hardening.
+# Only resolve versions published at least 7 days ago.
+minimumReleaseAge: 10080
+# Fail if a package loses provenance/trusted-publisher evidence it had before.
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # Backport of the CVE-2022-25883 fix published in 2023 by an npm CLI
+  # maintainer, after 7.x started shipping provenance. Pulled in by Babel.
+  - semver@6.3.1
+# Transitive deps must come from the registry, not git URLs or tarballs.
+blockExoticSubdeps: true
+# Fail on any dependency lifecycle script that is not explicitly allowed.
+strictDepBuilds: true
+saveExact: true
