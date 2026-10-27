@@ -55,10 +55,75 @@ describe('toFilename', () => {
     );
   });
 
-  it('truncates long titles without splitting surrogate pairs', () => {
-    const name = toFilename('😀'.repeat(300), 'mp4');
-    expect([...name]).toHaveLength(120 + '.mp4'.length);
-    expect(() => encodeURIComponent(name)).not.toThrow();
+  it('normalizes to NFC', () => {
+    expect(toFilename('Cafe\u0301', 'mp4')).toBe('Café.mp4');
+  });
+
+  describe('byte limit', () => {
+    const bytes = (text: string) => new TextEncoder().encode(text).length;
+    const MAX = 200;
+
+    it('leaves a title that fits exactly untouched', () => {
+      const title = 'a'.repeat(MAX - '.mp4'.length);
+      expect(toFilename(title, 'mp4')).toBe(`${title}.mp4`);
+    });
+
+    it('counts the extension and stays within the limit for ASCII', () => {
+      const name = toFilename('a'.repeat(500), 'mp4');
+      expect(bytes(name)).toBe(MAX);
+      expect(name.endsWith('.mp4')).toBe(true);
+    });
+
+    it('counts UTF-8 bytes for CJK titles', () => {
+      const name = toFilename('講'.repeat(200), 'mp4');
+      // 3 bytes per character: 65 fit in 196 bytes
+      expect(name).toBe(`${'講'.repeat(65)}.mp4`);
+      expect(bytes(name)).toBeLessThanOrEqual(MAX);
+    });
+
+    it('counts UTF-8 bytes for emoji and never splits surrogate pairs', () => {
+      const name = toFilename('😀'.repeat(300), 'mp4');
+      // 4 bytes per emoji: 49 fit in 196 bytes
+      expect(name).toBe(`${'😀'.repeat(49)}.mp4`);
+      expect(() => encodeURIComponent(name)).not.toThrow();
+    });
+
+    it('keeps a reserved-name prefix inside the limit', () => {
+      const name = toFilename(`nul.${'a'.repeat(300)}`, 'mp4');
+      expect(name.startsWith('_nul.')).toBe(true);
+      expect(bytes(name)).toBeLessThanOrEqual(MAX);
+    });
+
+    it('does not cut a ZWJ sequence in half', () => {
+      const family = '👨\u200D👩\u200D👧';
+      // 7 filler bytes leave room for a partial family but not the whole 18-byte cluster
+      const title = `${'a'.repeat(196 - 7)}${family}${family}`;
+      const name = toFilename(title, 'mp4');
+      expect(name).toBe(`${'a'.repeat(196 - 7)}.mp4`);
+    });
+
+    it('keeps a whole ZWJ sequence when it fits', () => {
+      const family = '👨\u200D👩\u200D👧';
+      expect(toFilename(`${family} class`, 'mp4')).toBe(`${family} class.mp4`);
+      expect(toFilename('a'.repeat(100) + family + 'b'.repeat(200), 'mp4')).toContain(family);
+    });
+
+    it('does not leave a dangling combining mark at the cut', () => {
+      // "x" + U+0301 has no precomposed form, so NFC keeps it as two code points
+      const name = toFilename(`${'a'.repeat(195)}x\u0301tail`, 'mp4');
+      expect(name).toBe(`${'a'.repeat(195)}.mp4`);
+      expect(name).not.toContain('\u0301');
+    });
+
+    it('keeps a combining mark together with its base when both fit', () => {
+      const name = toFilename(`${'a'.repeat(185)}x\u0301tail`, 'mp4');
+      expect(name).toBe(`${'a'.repeat(185)}x\u0301tail.mp4`);
+    });
+
+    it('strips dots and spaces exposed by the cut', () => {
+      const name = toFilename(`${'a'.repeat(195)}. . b`, 'mp4');
+      expect(name).toBe(`${'a'.repeat(195)}.mp4`);
+    });
   });
 
   it('sanitizes the extension too', () => {
