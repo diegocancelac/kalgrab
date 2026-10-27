@@ -1,0 +1,24 @@
+WEBVTT
+Kind: captions
+Language: en
+
+NOTE
+Hand-written sample, not taken from a real course.
+
+STYLE
+::cue { color: white }
+
+intro
+00:00:01.000 --> 00:00:03.500 align:start position:10%
+Welcome to the sample lecture.
+
+00:00:04.000 --> 00:00:06.250
+<v Instructor>Today we cover <i>two</i> topics:
+<b>vectors</b> &amp; matrices.
+
+2
+01:02:03.004 --> 01:02:05.000
+<c.yellow>Second line</c> with a <00:01:02.500>karaoke tag.
+
+00:07.000 --> 00:08.000
+Short timestamp without hours.
