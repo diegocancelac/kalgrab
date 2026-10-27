@@ -1,0 +1,303 @@
+[
+  {
+    "totalCount": 1,
+    "objects": [
+      {
+        "id": "1_abcd1234",
+        "name": "Sample lecture",
+        "description": "<div>Sample description</div>",
+        "userId": "teacher01",
+        "creatorId": "teacher01",
+        "tags": "sample",
+        "status": 2,
+        "type": 1,
+        "createdAt": 1600000000,
+        "updatedAt": 1700000000,
+        "downloadUrl": "https://cdnapisec.kaltura.com/p/1234567/sp/123456700/playManifest/entryId/1_abcd1234/format/download/protocol/https/flavorParamIds/0",
+        "thumbnailUrl": "https://cfvod.kaltura.com/p/1234567/sp/123456700/thumbnail/entry_id/1_abcd1234/version/100001",
+        "rootEntryId": "1_abcd1234",
+        "capabilities": "",
+        "plays": 0,
+        "views": 0,
+        "duration": 132,
+        "msDuration": 132000,
+        "mediaType": 1,
+        "dataUrl": "https://cdnapisec.kaltura.com/p/1234567/sp/123456700/playManifest/entryId/1_abcd1234/format/url/protocol/https",
+        "flavorParamsIds": "0,1001,1002,1003",
+        "objectType": "KalturaMediaEntry"
+      }
+    ],
+    "objectType": "KalturaBaseEntryListResponse"
+  },
+  {
+    "sources": [
+      {
+        "deliveryProfileId": 9001,
+        "format": "url",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9002,
+        "format": "hdnetworkmanifest",
+        "protocols": "https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9002/protocol/https/format/hdnetworkmanifest/manifest.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9003,
+        "format": "mpegdash",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9003/protocol/https/format/mpegdash/manifest.mpd",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 72,
+        "format": "url",
+        "protocols": "http",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "http://cdnapi.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/72/protocol/http/format/url/name/a.mp4",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 92,
+        "format": "url",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/92/protocol/https/format/url/name/a.mp4",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 102,
+        "format": "hdnetwork",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/102/protocol/https/format/hdnetwork/manifest.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9004,
+        "format": "applehttp",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9004/protocol/https/format/applehttp/a.m3u8",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 122,
+        "format": "rtsp",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/122/protocol/https/format/rtsp/name/a.3gp",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9005,
+        "format": "applehttp",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9005/protocol/https/format/applehttp/a.m3u8",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9006,
+        "format": "applehttp",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9006/protocol/https/format/applehttp/a.m3u8",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 132,
+        "format": "hdnetworkmanifest",
+        "protocols": "http",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "http://cdnapi.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/132/protocol/http/format/hdnetworkmanifest/manifest.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 152,
+        "format": "rtmp",
+        "protocols": "rtmp,rtmpe,rtmpt,rtmpte",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "http://cdnapi.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/152/protocol/http/format/rtmp/a.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 162,
+        "format": "rtmp",
+        "protocols": "rtmp,rtmpe,rtmpt,rtmpte",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "http://cdnapi.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/162/protocol/http/format/rtmp/a.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9007,
+        "format": "mpegdash",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9007/protocol/https/format/mpegdash/manifest.mpd",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9008,
+        "format": "url",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9008/protocol/https/format/url/name/a.mp4",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9009,
+        "format": "hdnetworkmanifest",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9009/protocol/https/format/hdnetworkmanifest/manifest.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9010,
+        "format": "hdnetworkmanifest",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9010/protocol/https/format/hdnetworkmanifest/manifest.f4m",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      },
+      {
+        "deliveryProfileId": 9011,
+        "format": "applehttp",
+        "protocols": "http,https",
+        "flavorIds": "1_flav0360,1_flav0480,1_flav0720",
+        "url": "https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480,1_flav0720/deliveryProfileId/9011/protocol/https/format/applehttp/a.m3u8",
+        "drm": [],
+        "objectType": "KalturaPlaybackSource"
+      }
+    ],
+    "playbackCaptions": [],
+    "flavorAssets": [
+      {
+        "id": "1_flav0360",
+        "entryId": "1_abcd1234",
+        "partnerId": 1234567,
+        "version": "1",
+        "size": 3061,
+        "tags": "mobile,web,mbr,iphone,iphonenew,ipad,ipadnew,dash",
+        "fileExt": "mp4",
+        "createdAt": 1600000000,
+        "updatedAt": 1700000000,
+        "description": "",
+        "sizeInBytes": 0,
+        "flavorParamsId": 1001,
+        "width": 640,
+        "height": 360,
+        "bitrate": 190,
+        "frameRate": 30,
+        "isOriginal": false,
+        "isWeb": true,
+        "containerFormat": "isom",
+        "videoCodecId": "avc1",
+        "status": 2,
+        "language": "Undefined",
+        "isDefault": false,
+        "objectType": "KalturaFlavorAsset"
+      },
+      {
+        "id": "1_flav0480",
+        "entryId": "1_abcd1234",
+        "partnerId": 1234567,
+        "version": "1",
+        "size": 3778,
+        "tags": "mobile,web,mbr,iphone,iphonenew,ipad,ipadnew,dash",
+        "fileExt": "mp4",
+        "createdAt": 1600000000,
+        "updatedAt": 1700000000,
+        "description": "",
+        "sizeInBytes": 0,
+        "flavorParamsId": 1002,
+        "width": 854,
+        "height": 480,
+        "bitrate": 234,
+        "frameRate": 30,
+        "isOriginal": false,
+        "isWeb": true,
+        "containerFormat": "isom",
+        "videoCodecId": "avc1",
+        "status": 2,
+        "language": "Undefined",
+        "isDefault": false,
+        "objectType": "KalturaFlavorAsset"
+      },
+      {
+        "id": "1_flav0720",
+        "entryId": "1_abcd1234",
+        "partnerId": 1234567,
+        "version": "1",
+        "size": 6103,
+        "tags": "mobile,web,mbr,ipad,ipadnew,iphone,iphonenew,dash",
+        "fileExt": "mp4",
+        "createdAt": 1600000000,
+        "updatedAt": 1700000000,
+        "description": "",
+        "sizeInBytes": 0,
+        "flavorParamsId": 1003,
+        "width": 1280,
+        "height": 720,
+        "bitrate": 378,
+        "frameRate": 30,
+        "isOriginal": false,
+        "isWeb": true,
+        "containerFormat": "isom",
+        "videoCodecId": "avc1",
+        "status": 2,
+        "language": "Undefined",
+        "isDefault": false,
+        "objectType": "KalturaFlavorAsset"
+      }
+    ],
+    "actions": [],
+    "messages": [],
+    "bumperData": [],
+    "objectType": "KalturaPlaybackContext"
+  },
+  {
+    "totalCount": 1,
+    "objects": [
+      {
+        "id": 111111111,
+        "partnerId": 1234567,
+        "metadataProfileId": 2222222,
+        "metadataProfileVersion": 1,
+        "metadataObjectType": 1,
+        "objectId": "1_abcd1234",
+        "version": 1,
+        "createdAt": 1600000000,
+        "updatedAt": 1700000000,
+        "status": 1,
+        "xml": "<metadata/>",
+        "objectType": "KalturaMetadata"
+      }
+    ],
+    "objectType": "KalturaMetadataListResponse"
+  }
+]
