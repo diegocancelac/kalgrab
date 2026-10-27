@@ -18,9 +18,6 @@ importers:
       '@preact/preset-vite':
         specifier: 2.10.6
         version: 2.10.6(@babel/core@7.29.7)(preact@11.0.1)(vite@8.3.4(jiti@2.7.0))
-      '@types/chrome':
-        specifier: 0.3.5
-        version: 0.3.5
       eslint:
         specifier: 10.13.0
         version: 10.13.0(jiti@2.7.0)
@@ -384,9 +381,6 @@ packages:
   '@topcli/prompts@4.0.0':
     resolution: {integrity: sha512-kkKYPb4k/6kRdnESt77B5vJrrYnYHIYczwv0P1c+tfN/IWEx3KZeKEHoUq7sImIyBEXWdA2uakIroD9pmRJziQ==}
     engines: {node: '>=22.0.0'}
-
-  '@types/chrome@0.3.5':
-    resolution: {integrity: sha512-7HYsK7xalNxzLwGrP9lkCQPAA6V56VtPpOmv2CQnBnMzX5/Hpr+Iv5fqaIOIY/H/Q6ZBksLmurWh7zXPcZ4B7Q==}
 
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -1751,11 +1745,6 @@ snapshots:
       picomatch: 4.0.7
 
   '@topcli/prompts@4.0.0': {}
-
-  '@types/chrome@0.3.5':
-    dependencies:
-      '@types/filesystem': 0.0.36
-      '@types/har-format': 1.2.16
 
   '@types/esrecurse@4.3.1': {}
 
