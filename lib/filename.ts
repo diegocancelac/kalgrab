@@ -8,6 +8,13 @@ const FALLBACK = 'video';
 const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f\u007f]+/g;
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
+// Bidi controls (they can make "invoice\u202Etxt.exe" look like another extension)
+// and zero-width characters. U+200D is handled separately.
+const INVISIBLE_CHARS = /[\u200B\u200C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+// A ZWJ is kept only when it joins emoji, so family and profession sequences survive.
+const STRAY_ZWJ =
+  /(?<![\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F])\u200D|\u200D(?!\p{Extended_Pictographic})/gu;
+
 const encoder = new TextEncoder();
 const segmenter = new Intl.Segmenter();
 
@@ -38,7 +45,14 @@ function stripEdges(text: string): string {
 }
 
 function sanitizeTitle(title: string, maxBytes: number): string {
-  let base = stripEdges(title.normalize('NFC').replace(/\s+/g, ' ').replace(INVALID_CHARS, '_'));
+  let base = stripEdges(
+    title
+      .normalize('NFC')
+      .replace(INVISIBLE_CHARS, '')
+      .replace(STRAY_ZWJ, '')
+      .replace(/\s+/g, ' ')
+      .replace(INVALID_CHARS, '_'),
+  );
 
   // "CON.mp4" is reserved too, the check applies to the part before the first dot.
   if (base && WINDOWS_RESERVED.test(base.split('.')[0] ?? '')) {

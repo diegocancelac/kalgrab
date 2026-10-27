@@ -126,6 +126,32 @@ describe('toFilename', () => {
     });
   });
 
+  describe('invisible characters', () => {
+    it('removes bidi controls from an RTLO title', () => {
+      const name = toFilename('invoice\u202Etxt.exe', 'mp4');
+      expect(name).toBe('invoicetxt.exe.mp4');
+      expect(name).not.toMatch(/[\u202A-\u202E\u2066-\u2069]/);
+    });
+
+    it('removes isolates and directional marks', () => {
+      expect(toFilename('a\u2066b\u2069c\u200Ed\u200Fe', 'mp4')).toBe('abcde.mp4');
+    });
+
+    it('removes zero-width characters and BOMs', () => {
+      expect(toFilename('\uFEFFa\u200Bb\u200Cc', 'mp4')).toBe('abc.mp4');
+    });
+
+    it('removes a ZWJ that does not join emoji', () => {
+      expect(toFilename('a\u200Db', 'mp4')).toBe('ab.mp4');
+      expect(toFilename('\u200D😀', 'mp4')).toBe('😀.mp4');
+      expect(toFilename('😀\u200D', 'mp4')).toBe('😀.mp4');
+    });
+
+    it('falls back when only invisible characters are left', () => {
+      expect(toFilename('\u200B\u202E\uFEFF', 'mp4')).toBe('video.mp4');
+    });
+  });
+
   it('sanitizes the extension too', () => {
     expect(toFilename('clip', 'm p/4')).toBe('clip.mp4');
     expect(toFilename('clip', '')).toBe('clip');
