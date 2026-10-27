@@ -9,8 +9,9 @@ const INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f\u007f]+/g;
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 // Bidi controls (they can make "invoice\u202Etxt.exe" look like another extension)
-// and zero-width characters. U+200D is handled separately.
-const INVISIBLE_CHARS = /[\u200B\u200C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+// and zero-width characters. U+200C (ZWNJ) is kept, Persian and other scripts
+// need it. U+200D is handled separately.
+const INVISIBLE_CHARS = /[\u200B\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 // A ZWJ is kept only when it joins emoji, so family and profession sequences survive.
 const STRAY_ZWJ =
   /(?<![\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F])\u200D|\u200D(?!\p{Extended_Pictographic})/gu;

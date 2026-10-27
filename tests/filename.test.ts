@@ -138,7 +138,13 @@ describe('toFilename', () => {
     });
 
     it('removes zero-width characters and BOMs', () => {
-      expect(toFilename('\uFEFFa\u200Bb\u200Cc', 'mp4')).toBe('abc.mp4');
+      expect(toFilename('\uFEFFa\u200Bbc', 'mp4')).toBe('abc.mp4');
+    });
+
+    it('keeps a ZWNJ, which is part of Persian spelling', () => {
+      expect(toFilename('\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645', 'mp4')).toBe(
+        '\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645.mp4',
+      );
     });
 
     it('removes a ZWJ that does not join emoji', () => {
