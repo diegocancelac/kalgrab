@@ -1,0 +1,25 @@
+{
+  "name": "kalgrab",
+  "description": "Download videos from Kaltura players",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@11.1.3",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "preact": "11.0.1"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "@types/chrome": "0.3.5",
+    "typescript": "7.0.2",
+    "wxt": "0.21.4"
+  }
+}
