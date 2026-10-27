@@ -49,10 +49,65 @@ describe('vttToSrt', () => {
     expect(vttToSrt(String.fromCharCode(0xfeff) + vtt)).toBe(vttToSrt(vtt));
   });
 
-  it('ignores the HLS timestamp map header', () => {
-    const vtt =
-      'WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000\n\n00:00:01.000 --> 00:00:02.000\ntext\n';
+  it.each([
+    'X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000',
+    'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000',
+  ])('ignores the HLS timestamp map header (%s)', (header) => {
+    const vtt = `WEBVTT\n${header}\n\n00:00:01.000 --> 00:00:02.000\ntext\n`;
     expect(vttToSrt(vtt)).toBe('1\n00:00:01,000 --> 00:00:02,000\ntext\n');
+  });
+
+  it('ignores the timestamp map next to other header lines and a title', () => {
+    const vtt = [
+      'WEBVTT - sample',
+      'Kind: captions',
+      'X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000',
+      'Language: en',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'text',
+    ].join('\n');
+    expect(vttToSrt(vtt)).toBe('1\n00:00:01,000 --> 00:00:02,000\ntext\n');
+  });
+
+  it('ignores NOTE, STYLE and REGION blocks between cues', () => {
+    const vtt = [
+      'WEBVTT',
+      '',
+      '00:00:01.000 --> 00:00:02.000',
+      'first',
+      '',
+      'NOTE a comment on the same line',
+      '',
+      'NOTE',
+      'a comment',
+      'on several lines',
+      '',
+      'STYLE',
+      '::cue { color: red }',
+      '',
+      'REGION',
+      'id:r1',
+      'width:40%',
+      '',
+      '00:00:03.000 --> 00:00:04.000',
+      'second',
+      '',
+      'NOTE trailing comment',
+    ].join('\n');
+    expect(vttToSrt(vtt)).toBe(
+      '1\n00:00:01,000 --> 00:00:02,000\nfirst\n\n2\n00:00:03,000 --> 00:00:04,000\nsecond\n',
+    );
+  });
+
+  it('does not mistake a cue identifier that starts with NOTE for a comment', () => {
+    const vtt = 'WEBVTT\n\nNOTES-1\n00:00:01.000 --> 00:00:02.000\ntext\n';
+    expect(vttToSrt(vtt)).toBe('1\n00:00:01,000 --> 00:00:02,000\ntext\n');
+  });
+
+  it('converts timestamps without hours', () => {
+    const vtt = 'WEBVTT\n\n00:07.000 --> 59:59.999\ntext\n';
+    expect(vttToSrt(vtt)).toBe('1\n00:00:07,000 --> 00:59:59,999\ntext\n');
   });
 
   it('pads short millisecond fields', () => {
