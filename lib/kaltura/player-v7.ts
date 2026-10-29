@@ -1,7 +1,7 @@
 // Reads what is needed from Kaltura Player v7 instances. Everything here is page data: any
 // property can be missing, of the wrong type, or a getter that throws.
 
-/** Holds the ks: lives only in the MAIN world and never goes into a message. */
+/** Holds the ks: never stored or logged, and never part of a listing. */
 export interface PlayerSession {
   partnerId: number;
   /** As the player has it, usually with the "/api_v3" suffix. */
