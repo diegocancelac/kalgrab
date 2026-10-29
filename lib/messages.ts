@@ -1,13 +1,13 @@
-// Messages that the MAIN-world script posts to the isolated-world bridge. The page shares
-// that world and can post anything on the same channel, so the bridge treats every message
-// as untrusted: the guards below accept only the exact shapes defined here, with bounded
-// sizes, and ignore everything else.
+// Messages the MAIN-world scripts return to the background through executeScript. They are
+// built in the page's world, which can tamper with anything there, so the background treats
+// them as untrusted: the guards below accept only the exact shapes defined here, with
+// bounded sizes, and ignore everything else.
 
 import type { Caption, Flavor, VideoInfo, VideoSource } from './kaltura/playback-context';
+import type { PlayerSession } from './kaltura/player-v7';
 
 export const CHANNEL = 'kalgrab';
-// After an update the scripts are injected again, and a MAIN-world script from the previous
-// version may still be running in the page. Bump this whenever a message shape changes.
+// Bump whenever a message shape changes.
 export const VERSION = 1;
 
 export const LIMITS = {
@@ -22,6 +22,8 @@ export const LIMITS = {
   fileExt: 10,
   reason: 1000,
   url: 4096,
+  sessions: 50,
+  ks: 8192,
 } as const;
 
 // Upper bounds for numbers; far above anything real, only there to reject nonsense.
@@ -38,7 +40,7 @@ export interface VideosMessage {
   videos: VideoInfo[];
 }
 
-/** A request to a Kaltura origin failed, typically because host access was not granted. */
+/** A request to a Kaltura origin failed (network error or timeout). */
 export interface FetchFailedMessage {
   channel: typeof CHANNEL;
   version: typeof VERSION;
@@ -46,7 +48,21 @@ export interface FetchFailedMessage {
   origin: string;
 }
 
-export type MainMessage = VideosMessage | FetchFailedMessage;
+/**
+ * The sessions of the frame's players, for the background to use: to request the playback
+ * context when the page's fetch is not native, or to sign a download URL. Carries the ks, so
+ * it is never stored, logged or passed on to the popup.
+ */
+export interface SessionsMessage {
+  channel: typeof CHANNEL;
+  version: typeof VERSION;
+  type: 'sessions';
+  /** The frame's location.href, sent to Kaltura as the download referrer. */
+  pageUrl: string;
+  sessions: PlayerSession[];
+}
+
+export type MainMessage = VideosMessage | FetchFailedMessage | SessionsMessage;
 
 type Json = Record<string, unknown>;
 
@@ -174,7 +190,8 @@ function isBlocked(value: unknown): value is { reason: string } {
   );
 }
 
-function isVideoInfo(value: unknown): value is VideoInfo {
+/** One listed video, held to the same rules as inside a videos message. */
+export function isVideoInfo(value: unknown): value is VideoInfo {
   return (
     isPlainObject(value) &&
     hasShape(
@@ -228,7 +245,51 @@ export function isFetchFailedMessage(value: unknown): value is FetchFailedMessag
   );
 }
 
-/** True for a message this extension's MAIN-world script could have sent; false for anything else. */
+// Unlike a listing, a session is expected to carry a ks: it is checked for shape only.
+function isPlayerSession(value: unknown): value is PlayerSession {
+  return (
+    isPlainObject(value) &&
+    hasShape(value, ['partnerId', 'serviceUrl', 'allowedOrigins', 'ks', 'entryId']) &&
+    Number.isSafeInteger(value['partnerId']) &&
+    (value['partnerId'] as number) > 0 &&
+    isHttpUrl(value['serviceUrl']) &&
+    isList(value['allowedOrigins'], 2, isHttpUrl) &&
+    value['allowedOrigins'].length > 0 &&
+    typeof value['ks'] === 'string' &&
+    value['ks'].length <= LIMITS.ks &&
+    /^[A-Za-z0-9+/=_-]+$/.test(value['ks']) &&
+    isIdentifier(value['entryId'], LIMITS.id)
+  );
+}
+
+// The page URL goes to Kaltura as the referrer, as the player sends it; it is not checked
+// for a ks like the listing URLs are.
+function isPageUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > LIMITS.url) return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isSessionsMessage(value: unknown): value is SessionsMessage {
+  return (
+    isPlainObject(value) &&
+    hasShape(value, ['channel', 'version', 'type', 'pageUrl', 'sessions']) &&
+    value['channel'] === CHANNEL &&
+    value['version'] === VERSION &&
+    value['type'] === 'sessions' &&
+    isPageUrl(value['pageUrl']) &&
+    isList(value['sessions'], LIMITS.sessions, isPlayerSession) &&
+    value['sessions'].length > 0
+  );
+}
+
+/** True for a message this extension's MAIN-world scripts could return; false for anything else. */
 export function isMainMessage(value: unknown): value is MainMessage {
-  return isVideosMessage(value) || isFetchFailedMessage(value);
+  return isVideosMessage(value) || isFetchFailedMessage(value) || isSessionsMessage(value);
 }
