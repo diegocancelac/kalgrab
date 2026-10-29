@@ -227,6 +227,21 @@ describe('master playlist', () => {
     });
   });
 
+  it('ignores EXT-X-I-FRAME-STREAM-INF', () => {
+    const playlist = master(
+      [
+        '#EXTM3U',
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=50000,RESOLUTION=640x360,URI="iframe-360.m3u8"',
+        '#EXT-X-STREAM-INF:BANDWIDTH=200000,RESOLUTION=640x360',
+        'v360.m3u8',
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=90000,RESOLUTION=1280x720,URI="iframe-720.m3u8"',
+      ].join('\n'),
+    );
+    expect(playlist.variants.map((v) => v.url)).toEqual([
+      'https://cdn.example.com/hls/entry/v360.m3u8',
+    ]);
+  });
+
   it('is protected with a SESSION-KEY other than NONE', () => {
     const text = [
       '#EXTM3U',
