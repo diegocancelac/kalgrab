@@ -6,6 +6,9 @@
 import type { Caption, Flavor, VideoInfo, VideoSource } from './kaltura/playback-context';
 
 export const CHANNEL = 'kalgrab';
+// After an update the scripts are injected again, and a MAIN-world script from the previous
+// version may still be running in the page. Bump this whenever a message shape changes.
+export const VERSION = 1;
 
 export const LIMITS = {
   videos: 50,
@@ -30,6 +33,7 @@ const MAX_DURATION_SECONDS = 30 * 24 * 3600;
 /** The list of videos detected in a frame. Never carries a ks. */
 export interface VideosMessage {
   channel: typeof CHANNEL;
+  version: typeof VERSION;
   type: 'videos';
   videos: VideoInfo[];
 }
@@ -37,6 +41,7 @@ export interface VideosMessage {
 /** A request to a Kaltura origin failed, typically because host access was not granted. */
 export interface FetchFailedMessage {
   channel: typeof CHANNEL;
+  version: typeof VERSION;
   type: 'fetch-failed';
   origin: string;
 }
@@ -202,17 +207,21 @@ function offersNothingWhenRestricted(video: Json): boolean {
 export function isVideosMessage(value: unknown): value is VideosMessage {
   return (
     isPlainObject(value) &&
-    hasShape(value, ['channel', 'type', 'videos']) &&
+    hasShape(value, ['channel', 'version', 'type', 'videos']) &&
     value['channel'] === CHANNEL &&
+    value['version'] === VERSION &&
     value['type'] === 'videos' &&
     isList(value['videos'], LIMITS.videos, isVideoInfo)
   );
 }
 
 export function isFetchFailedMessage(value: unknown): value is FetchFailedMessage {
-  if (!isPlainObject(value) || !hasShape(value, ['channel', 'type', 'origin'])) return false;
+  if (!isPlainObject(value) || !hasShape(value, ['channel', 'version', 'type', 'origin'])) {
+    return false;
+  }
   return (
     value['channel'] === CHANNEL &&
+    value['version'] === VERSION &&
     value['type'] === 'fetch-failed' &&
     isHttpUrl(value['origin']) &&
     new URL(value['origin']).origin === value['origin']

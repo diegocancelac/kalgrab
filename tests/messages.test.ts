@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHANNEL,
   LIMITS,
+  VERSION,
   isFetchFailedMessage,
   isMainMessage,
   isVideosMessage,
@@ -30,13 +31,14 @@ function videosMessage(edit?: (video: Json, message: Json) => void): Json {
     ...info,
     captions: [{ label: 'English', languageCode: 'en', isDefault: true, url: CAPTION_URL }],
   }) as Json;
-  const message: Json = { channel: CHANNEL, type: 'videos', videos: [video] };
+  const message: Json = { channel: CHANNEL, version: VERSION, type: 'videos', videos: [video] };
   edit?.(video, message);
   return message;
 }
 
 const fetchFailed = (origin = 'https://cdnapisec.kaltura.com'): Json => ({
   channel: CHANNEL,
+  version: VERSION,
   type: 'fetch-failed',
   origin,
 });
@@ -58,9 +60,14 @@ describe('valid messages', () => {
         return response;
       })(),
     );
-    expect(isVideosMessage({ channel: CHANNEL, type: 'videos', videos: [protectedVideo] })).toBe(
-      true,
-    );
+    expect(
+      isVideosMessage({
+        channel: CHANNEL,
+        version: VERSION,
+        type: 'videos',
+        videos: [protectedVideo],
+      }),
+    ).toBe(true);
   });
 
   it('accepts a blocked video and optional fields left out', () => {
@@ -94,10 +101,10 @@ describe('foreign messages are ignored', () => {
     { channel: 'other', type: 'videos', videos: [] },
     { channel: 'KALGRAB', type: 'videos', videos: [] },
     { channel: CHANNEL },
-    { channel: CHANNEL, type: 'unknown' },
-    { channel: CHANNEL, type: 'Videos', videos: [] },
-    { channel: CHANNEL, type: 42, videos: [] },
-    { channel: CHANNEL, type: ['videos'], videos: [] },
+    { channel: CHANNEL, version: VERSION, type: 'unknown' },
+    { channel: CHANNEL, version: VERSION, type: 'Videos', videos: [] },
+    { channel: CHANNEL, version: VERSION, type: 42, videos: [] },
+    { channel: CHANNEL, version: VERSION, type: ['videos'], videos: [] },
     { source: 'react-devtools-content-script', payload: {} },
   ];
 
@@ -107,22 +114,49 @@ describe('foreign messages are ignored', () => {
     expect(isFetchFailedMessage(value)).toBe(false);
   });
 
+  it('requires the channel and the current version on every message', () => {
+    for (const message of [videosMessage(), fetchFailed()]) {
+      const header: [string, unknown][] = [
+        ['channel', undefined],
+        ['channel', 'other'],
+        ['version', undefined],
+        ['version', VERSION - 1],
+        ['version', VERSION + 1],
+        ['version', String(VERSION)],
+        ['version', [VERSION]],
+      ];
+      for (const [key, value] of header) {
+        const edited =
+          value === undefined
+            ? Object.fromEntries(Object.entries(message).filter(([k]) => k !== key))
+            : { ...message, [key]: value };
+        expect(isMainMessage(edited), `${message['type']} with ${key}=${String(value)}`).toBe(
+          false,
+        );
+      }
+    }
+  });
+
   it('rejects objects that are not plain data', () => {
     class Forged {
       channel = CHANNEL;
+      version = VERSION;
       type = 'videos';
       videos = [];
     }
     expect(isMainMessage(new Forged())).toBe(false);
-    expect(isMainMessage(Object.create({ channel: CHANNEL, type: 'videos', videos: [] }))).toBe(
-      false,
-    );
+    expect(
+      isMainMessage(
+        Object.create({ channel: CHANNEL, version: VERSION, type: 'videos', videos: [] }),
+      ),
+    ).toBe(false);
     expect(isMainMessage(new Map())).toBe(false);
   });
 
   it('does not run on inherited properties', () => {
     const inherited = Object.create(null);
     inherited.channel = CHANNEL;
+    inherited.version = VERSION;
     inherited.type = 'videos';
     expect(isMainMessage(inherited)).toBe(false);
   });
@@ -206,8 +240,8 @@ describe('malformed messages', () => {
   });
 
   it('rejects a message with missing required fields', () => {
-    expect(isMainMessage({ channel: CHANNEL, type: 'videos' })).toBe(false);
-    expect(isMainMessage({ channel: CHANNEL, type: 'fetch-failed' })).toBe(false);
+    expect(isMainMessage({ channel: CHANNEL, version: VERSION, type: 'videos' })).toBe(false);
+    expect(isMainMessage({ channel: CHANNEL, version: VERSION, type: 'fetch-failed' })).toBe(false);
   });
 
   it('rejects fields that are not part of the shape, at every level', () => {
@@ -224,7 +258,7 @@ describe('malformed messages', () => {
 
   it('rejects a __proto__ key', () => {
     const message = JSON.parse(
-      `{"channel":"${CHANNEL}","type":"fetch-failed","origin":"https://a.example.com","__proto__":{"x":1}}`,
+      `{"channel":"${CHANNEL}","version":${VERSION},"type":"fetch-failed","origin":"https://a.example.com","__proto__":{"x":1}}`,
     );
     expect(isMainMessage(message)).toBe(false);
   });
@@ -369,11 +403,17 @@ describe('size limits', () => {
   it('limits the number of videos', () => {
     const one = videosMessage()['videos'][0];
     expect(
-      isVideosMessage({ channel: CHANNEL, type: 'videos', videos: Array(LIMITS.videos).fill(one) }),
+      isVideosMessage({
+        channel: CHANNEL,
+        version: VERSION,
+        type: 'videos',
+        videos: Array(LIMITS.videos).fill(one),
+      }),
     ).toBe(true);
     expect(
       isVideosMessage({
         channel: CHANNEL,
+        version: VERSION,
         type: 'videos',
         videos: Array(LIMITS.videos + 1).fill(one),
       }),
