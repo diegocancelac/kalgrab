@@ -323,6 +323,34 @@ describe('media playlist', () => {
     expect(errorCode(() => parsePlaylist('#EXTM3U\n#EXT-X-ENDLIST', BASE))).toBe('invalid');
   });
 
+  describe('discontinuities', () => {
+    it('is empty when the playlist has none', () => {
+      expect(media('#EXTM3U\n#EXTINF:1,\na.ts\n#EXT-X-ENDLIST').discontinuities).toEqual([]);
+    });
+
+    it('reports the index of the segment after each tag, without throwing', () => {
+      const text = [
+        '#EXTM3U',
+        '#EXTINF:1,',
+        'a.ts',
+        '#EXT-X-DISCONTINUITY',
+        '#EXTINF:1,',
+        'b.ts',
+        '#EXTINF:1,',
+        'c.ts',
+        '#EXT-X-DISCONTINUITY',
+        '#EXT-X-DISCONTINUITY',
+        '#EXTINF:1,',
+        'd.ts',
+        '#EXT-X-DISCONTINUITY',
+        '#EXT-X-ENDLIST',
+      ].join('\n');
+      const playlist = media(text);
+      expect(playlist.segments).toHaveLength(4);
+      expect(playlist.discontinuities).toEqual([1, 3]);
+    });
+  });
+
   describe('protection', () => {
     const withKey = (key: string) => `#EXTM3U\n${key}\n#EXTINF:2,\na.ts\n#EXT-X-ENDLIST`;
 

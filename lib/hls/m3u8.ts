@@ -52,6 +52,8 @@ export interface MediaPlaylist {
   kind: 'media';
   segments: Segment[];
   mediaSequence: number;
+  /** Indices into `segments` of the segments that follow an EXT-X-DISCONTINUITY. */
+  discontinuities: number[];
   isProtected: boolean;
 }
 
@@ -193,7 +195,9 @@ function parseMaster(entries: Entry[], baseUrl: string, isProtected: boolean): M
 function parseMedia(entries: Entry[], baseUrl: string, isProtected: boolean): MediaPlaylist {
   const segments: Segment[] = [];
   let mediaSequence = 0;
+  const discontinuities: number[] = [];
   let pendingDuration: number | null = null;
+  let pendingDiscontinuity = false;
   let ended = false;
   let hasMap = false;
   let hasByteRange = false;
@@ -201,6 +205,8 @@ function parseMedia(entries: Entry[], baseUrl: string, isProtected: boolean): Me
   for (const entry of entries) {
     if (entry.type === 'uri') {
       if (pendingDuration !== null) {
+        if (pendingDiscontinuity) discontinuities.push(segments.length);
+        pendingDiscontinuity = false;
         segments.push({ url: resolveUri(entry.value, baseUrl), duration: pendingDuration });
         pendingDuration = null;
       }
@@ -222,6 +228,10 @@ function parseMedia(entries: Entry[], baseUrl: string, isProtected: boolean): Me
         if (Number.isFinite(sequence)) mediaSequence = sequence;
         break;
       }
+      case 'EXT-X-DISCONTINUITY':
+        // A tag with no segment after it, or repeated tags, mark nothing new.
+        pendingDiscontinuity = true;
+        break;
       case 'EXT-X-ENDLIST':
         ended = true;
         break;
@@ -251,7 +261,7 @@ function parseMedia(entries: Entry[], baseUrl: string, isProtected: boolean): Me
     if (!segments.length) throw new M3u8Error('invalid', 'The playlist has no segments.');
   }
 
-  return { kind: 'media', segments, mediaSequence, isProtected };
+  return { kind: 'media', segments, mediaSequence, discontinuities, isProtected };
 }
 
 /**
