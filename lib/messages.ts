@@ -107,6 +107,10 @@ function isNumberUpTo(value: unknown, max: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max;
 }
 
+function isCountUpTo(value: unknown, max: number): value is number {
+  return Number.isInteger(value) && isNumberUpTo(value, max);
+}
+
 function isHttpUrl(value: unknown): value is string {
   if (typeof value !== 'string' || !value || value.length > LIMITS.url) return false;
   try {
@@ -127,10 +131,10 @@ function isFlavor(value: unknown): value is Flavor {
     isPlainObject(value) &&
     hasShape(value, ['id', 'width', 'height', 'bitrate'], ['sizeBytes', 'fileExt']) &&
     isIdentifier(value['id'], LIMITS.id) &&
-    isNumberUpTo(value['width'], MAX_DIMENSION) &&
-    isNumberUpTo(value['height'], MAX_DIMENSION) &&
-    isNumberUpTo(value['bitrate'], MAX_BITRATE_KBPS) &&
-    (!('sizeBytes' in value) || isNumberUpTo(value['sizeBytes'], MAX_SIZE_BYTES)) &&
+    isCountUpTo(value['width'], MAX_DIMENSION) &&
+    isCountUpTo(value['height'], MAX_DIMENSION) &&
+    isCountUpTo(value['bitrate'], MAX_BITRATE_KBPS) &&
+    (!('sizeBytes' in value) || isCountUpTo(value['sizeBytes'], MAX_SIZE_BYTES)) &&
     (!('fileExt' in value) ||
       (isText(value['fileExt'], LIMITS.fileExt) && /^[A-Za-z0-9]+$/.test(value['fileExt'])))
   );

@@ -173,6 +173,38 @@ describe('malformed messages', () => {
     expect(isVideosMessage(videosMessage(edit))).toBe(false);
   });
 
+  describe('numbers', () => {
+    const counts: [string, (v: Json, n: unknown) => void][] = [
+      ['flavor width', (v, n) => (v['flavors'][0].width = n)],
+      ['flavor height', (v, n) => (v['flavors'][0].height = n)],
+      ['flavor bitrate', (v, n) => (v['flavors'][0].bitrate = n)],
+      ['flavor sizeBytes', (v, n) => (v['flavors'][0].sizeBytes = n)],
+    ];
+    const duration: [string, (v: Json, n: unknown) => void] = [
+      'durationSeconds',
+      (v, n) => (v['durationSeconds'] = n),
+    ];
+    const notANumber = [NaN, Infinity, -Infinity, -1, -0.5, '1', null, true, 10n];
+
+    for (const [name, set] of [...counts, duration]) {
+      it.each(notANumber.map((n) => [String(n), n]))(`rejects ${name}: %s`, (_label, n) => {
+        expect(isVideosMessage(videosMessage((v) => set(v, n)))).toBe(false);
+      });
+
+      it(`accepts ${name}: 0`, () => {
+        expect(isVideosMessage(videosMessage((v) => set(v, 0)))).toBe(true);
+      });
+    }
+
+    it.each(counts)('rejects a fractional %s', (_name, set) => {
+      expect(isVideosMessage(videosMessage((v) => set(v, 640.5)))).toBe(false);
+    });
+
+    it('accepts a fractional durationSeconds', () => {
+      expect(isVideosMessage(videosMessage((v) => (v['durationSeconds'] = 90.5)))).toBe(true);
+    });
+  });
+
   it('rejects a message with missing required fields', () => {
     expect(isMainMessage({ channel: CHANNEL, type: 'videos' })).toBe(false);
     expect(isMainMessage({ channel: CHANNEL, type: 'fetch-failed' })).toBe(false);
