@@ -24,6 +24,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm zip
+      - run: pnpm check:manifest
       - name: Create release
         run: gh release create "$GITHUB_REF_NAME" .output/*-chrome.zip --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
         env:

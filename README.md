@@ -51,6 +51,10 @@ The traces in `pnpm dev` and `pnpm build:dev` builds follow each scan and downlo
 (frames, message types, validation, response) without session tokens or URLs. Production
 builds leave them out.
 
+Development builds also declare `*://*/*` in `host_permissions`, so they have site access
+from install. Production builds only list it as optional; `pnpm check:manifest` (run in
+CI) fails if the production manifest declares `host_permissions`.
+
 Releases are built by CI when a `v*` tag matching the `package.json` version is pushed.
 
 Test fixtures in `tests/fixtures` are sanitized captures. Never commit HAR files, tokens,

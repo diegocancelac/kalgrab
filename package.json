@@ -10,6 +10,7 @@
     "dev": "wxt",
     "build": "wxt build",
     "build:dev": "wxt build --mode development",
+    "check:manifest": "node scripts/check-manifest.ts",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
