@@ -9,6 +9,8 @@ export interface FrameState {
   videos: VideoInfo[];
   /** Kaltura origins a request to failed, so the popup can name them. */
   failedOrigins: string[];
+  /** A player is there, but nothing can be requested until the page is reloaded. */
+  needsReload: boolean;
 }
 
 export interface TabFrame {
@@ -24,7 +26,7 @@ export const frameKey = (tabId: number, frameId: number) => `tab:${tabId}:frame:
 export const isTabKey = (key: string, tabId: number) => key.startsWith(`tab:${tabId}:`);
 
 export function applyPageMessage(state: FrameState | undefined, message: MainMessage): FrameState {
-  const current = state ?? { videos: [], failedOrigins: [] };
+  const current = state ?? { videos: [], failedOrigins: [], needsReload: false };
   switch (message.type) {
     case 'videos':
       return { ...current, videos: message.videos };
@@ -33,6 +35,8 @@ export function applyPageMessage(state: FrameState | undefined, message: MainMes
       const failedOrigins = [...current.failedOrigins, message.origin].slice(-MAX_FAILED_ORIGINS);
       return { ...current, failedOrigins };
     }
+    case 'needs-reload':
+      return { ...current, needsReload: true };
   }
 }
 

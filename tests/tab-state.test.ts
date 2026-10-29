@@ -28,14 +28,23 @@ const failed = (origin: string) => ({ ...header, type: 'fetch-failed', origin })
 
 describe('applyPageMessage', () => {
   it('starts an empty frame from its first message', () => {
-    expect(applyPageMessage(undefined, videos())).toEqual({ videos: [video], failedOrigins: [] });
+    expect(applyPageMessage(undefined, videos())).toEqual({
+      videos: [video],
+      failedOrigins: [],
+      needsReload: false,
+    });
   });
 
   it('replaces the videos of the frame and keeps its failed origins', () => {
-    const state: FrameState = { videos: [video], failedOrigins: ['https://a.example.com'] };
+    const state: FrameState = {
+      videos: [video],
+      failedOrigins: ['https://a.example.com'],
+      needsReload: false,
+    };
     expect(applyPageMessage(state, videos([]))).toEqual({
       videos: [],
       failedOrigins: ['https://a.example.com'],
+      needsReload: false,
     });
   });
 
@@ -43,7 +52,11 @@ describe('applyPageMessage', () => {
     let state = applyPageMessage(undefined, videos());
     state = applyPageMessage(state, failed('https://a.example.com'));
     state = applyPageMessage(state, failed('https://a.example.com'));
-    expect(state).toEqual({ videos: [video], failedOrigins: ['https://a.example.com'] });
+    expect(state).toEqual({
+      videos: [video],
+      failedOrigins: ['https://a.example.com'],
+      needsReload: false,
+    });
   });
 
   it('keeps only the latest failed origins', () => {
@@ -54,12 +67,23 @@ describe('applyPageMessage', () => {
     expect(state?.failedOrigins).toHaveLength(10);
     expect(state?.failedOrigins.at(-1)).toBe('https://h14.example.com');
   });
+
+  it('marks a frame that needs a reload and keeps what it had', () => {
+    let state = applyPageMessage(undefined, failed('https://a.example.com'));
+    state = applyPageMessage(state, { ...header, type: 'needs-reload' });
+    expect(state).toEqual({
+      videos: [],
+      failedOrigins: ['https://a.example.com'],
+      needsReload: true,
+    });
+  });
 });
 
 describe('frames of a tab', () => {
   const state = (count: number): FrameState => ({
     videos: Array(count).fill(video),
     failedOrigins: [],
+    needsReload: false,
   });
 
   const items = {

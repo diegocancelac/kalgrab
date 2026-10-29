@@ -6,8 +6,10 @@ import {
   CHANNEL,
   LIMITS,
   VERSION,
+  isDownloadRequestMessage,
   isFetchFailedMessage,
   isMainMessage,
+  isNeedsReloadMessage,
   isVideosMessage,
 } from '../lib/messages';
 import { parsePlaybackContext } from '../lib/kaltura/playback-context';
@@ -551,5 +553,61 @@ describe('a ks smuggled into a listing', () => {
     expect(isFetchFailedMessage(fetchFailed(`https://cdnapisec.kaltura.com/ks/${FAKE_KS}`))).toBe(
       false,
     );
+  });
+});
+
+describe('needs-reload', () => {
+  const needsReload = { channel: CHANNEL, version: VERSION, type: 'needs-reload' };
+
+  it('accepts the bare message', () => {
+    expect(isNeedsReloadMessage(needsReload)).toBe(true);
+    expect(isMainMessage(needsReload)).toBe(true);
+  });
+
+  it('rejects any extra field, a wrong header, or a non-plain object', () => {
+    const invalid = [
+      { ...needsReload, reason: 'x' },
+      { ...needsReload, ks: FAKE_KS },
+      { ...needsReload, version: VERSION + 1 },
+      { ...needsReload, channel: 'other' },
+      { channel: CHANNEL, type: 'needs-reload' },
+      Object.assign(Object.create({ x: 1 }), needsReload),
+    ];
+    for (const value of invalid) {
+      expect(isMainMessage(value)).toBe(false);
+    }
+  });
+});
+
+describe('download-request', () => {
+  const request = {
+    channel: CHANNEL,
+    version: VERSION,
+    type: 'download-request',
+    entryId: '1_abcd1234',
+    flavorId: '1_flav0480',
+  };
+
+  it('accepts a request and is not a message the MAIN script sends', () => {
+    expect(isDownloadRequestMessage(request)).toBe(true);
+    expect(isMainMessage(request)).toBe(false);
+  });
+
+  it('rejects malformed requests', () => {
+    const invalid = [
+      { ...request, entryId: '1_a/../b' },
+      { ...request, entryId: '' },
+      { ...request, flavorId: 'x'.repeat(LIMITS.id + 1) },
+      { ...request, flavorId: 42 },
+      { ...request, flavorId: FAKE_V2_KS },
+      { ...request, url: 'https://cdnapisec.kaltura.com' },
+      { ...request, version: VERSION - 1 },
+      { ...request, channel: 'other' },
+      { ...request, type: 'download' },
+      null,
+    ];
+    for (const value of invalid) {
+      expect(isDownloadRequestMessage(value), JSON.stringify(value)).toBe(false);
+    }
   });
 });

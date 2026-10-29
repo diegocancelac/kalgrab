@@ -46,7 +46,35 @@ export interface FetchFailedMessage {
   origin: string;
 }
 
-export type MainMessage = VideosMessage | FetchFailedMessage;
+/**
+ * The frame has a player, but the page replaced fetch before the script ran (it was injected
+ * into an open page), so nothing is requested until the page is reloaded.
+ */
+export interface NeedsReloadMessage {
+  channel: typeof CHANNEL;
+  version: typeof VERSION;
+  type: 'needs-reload';
+}
+
+export type MainMessage = VideosMessage | FetchFailedMessage | NeedsReloadMessage;
+
+/**
+ * ISOLATED → MAIN: asks for the URL of a flavor with the session. It travels with a
+ * MessagePort, and the answer (DownloadUrlPortMessage) goes back on that port only, so the
+ * page's own `message` listeners never see the URL.
+ */
+export interface DownloadRequestMessage {
+  channel: typeof CHANNEL;
+  version: typeof VERSION;
+  type: 'download-request';
+  entryId: string;
+  flavorId: string;
+}
+
+/** MAIN → ISOLATED on the request's port. `url` carries the ks; empty when there is none. */
+export interface DownloadUrlPortMessage {
+  url?: string;
+}
 
 type Json = Record<string, unknown>;
 
@@ -228,7 +256,30 @@ export function isFetchFailedMessage(value: unknown): value is FetchFailedMessag
   );
 }
 
+export function isNeedsReloadMessage(value: unknown): value is NeedsReloadMessage {
+  return (
+    isPlainObject(value) &&
+    hasShape(value, ['channel', 'version', 'type']) &&
+    value['channel'] === CHANNEL &&
+    value['version'] === VERSION &&
+    value['type'] === 'needs-reload'
+  );
+}
+
 /** True for a message this extension's MAIN-world script could have sent; false for anything else. */
 export function isMainMessage(value: unknown): value is MainMessage {
-  return isVideosMessage(value) || isFetchFailedMessage(value);
+  return isVideosMessage(value) || isFetchFailedMessage(value) || isNeedsReloadMessage(value);
+}
+
+/** The page can post this too: the MAIN script checks it like any other message. */
+export function isDownloadRequestMessage(value: unknown): value is DownloadRequestMessage {
+  return (
+    isPlainObject(value) &&
+    hasShape(value, ['channel', 'version', 'type', 'entryId', 'flavorId']) &&
+    value['channel'] === CHANNEL &&
+    value['version'] === VERSION &&
+    value['type'] === 'download-request' &&
+    isIdentifier(value['entryId'], LIMITS.id) &&
+    isIdentifier(value['flavorId'], LIMITS.id)
+  );
 }
