@@ -109,9 +109,36 @@ describe('master playlist', () => {
     ]);
   });
 
-  it('rejects a variant without BANDWIDTH', () => {
-    const text = '#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=640x360\nlow.m3u8\n';
-    expect(errorCode(() => parsePlaylist(text, BASE))).toBe('invalid');
+  it('accepts a variant without BANDWIDTH', () => {
+    const playlist = master('#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=640x360\nlow.m3u8\n');
+    expect(playlist.variants).toEqual([
+      {
+        url: 'https://cdn.example.com/hls/entry/low.m3u8',
+        resolution: { width: 640, height: 360 },
+      },
+    ]);
+  });
+
+  it('ignores a non-numeric BANDWIDTH', () => {
+    const playlist = master('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=abc\nlow.m3u8\n');
+    expect(playlist.variants[0]?.bandwidth).toBeUndefined();
+  });
+
+  it('skips a STREAM-INF without a URI and keeps the usable variants', () => {
+    const text = [
+      '#EXTM3U',
+      '#EXT-X-STREAM-INF:BANDWIDTH=1',
+      '#EXT-X-STREAM-INF:BANDWIDTH=2',
+      'mid.m3u8',
+      '#EXT-X-STREAM-INF:BANDWIDTH=3',
+    ].join('\n');
+    expect(master(text).variants.map((v) => v.bandwidth)).toEqual([2]);
+  });
+
+  it('rejects a master without usable variants', () => {
+    expect(errorCode(() => parsePlaylist('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n', BASE))).toBe(
+      'invalid',
+    );
   });
 
   it('is protected with a SESSION-KEY other than NONE', () => {

@@ -14,7 +14,7 @@ export class M3u8Error extends Error {
 
 export interface Variant {
   url: string;
-  bandwidth: number;
+  bandwidth?: number;
   resolution?: { width: number; height: number };
   frameRate?: number;
   codecs?: string;
@@ -112,11 +112,9 @@ function parseMaster(entries: Entry[], baseUrl: string, isProtected: boolean): M
     }
     if (!pending) continue;
 
-    const bandwidth = Number(pending['BANDWIDTH']);
-    if (!Number.isFinite(bandwidth)) {
-      throw new M3u8Error('invalid', `Variant without a valid BANDWIDTH: ${entry.value}`);
-    }
-    const variant: Variant = { url: resolveUri(entry.value, baseUrl), bandwidth };
+    const variant: Variant = { url: resolveUri(entry.value, baseUrl) };
+    const bandwidth = pending['BANDWIDTH'];
+    if (bandwidth !== undefined && /^\d+$/.test(bandwidth)) variant.bandwidth = Number(bandwidth);
 
     const size = RESOLUTION.exec(pending['RESOLUTION'] ?? '');
     if (size) variant.resolution = { width: Number(size[1]), height: Number(size[2]) };
@@ -131,6 +129,9 @@ function parseMaster(entries: Entry[], baseUrl: string, isProtected: boolean): M
     pending = null;
   }
 
+  if (!isProtected && !variants.length) {
+    throw new M3u8Error('invalid', 'The master playlist has no usable variants.');
+  }
   return { kind: 'master', variants, isProtected };
 }
 
