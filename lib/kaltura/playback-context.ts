@@ -115,8 +115,11 @@ const isRecord = (value: unknown): value is Json =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const asString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value : undefined;
-const asNumber = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+const asNonNegative = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+// Flavor dimensions, bitrate and size are integers in the API; anything else counts as unknown.
+const asCount = (value: unknown): number | undefined =>
+  Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : undefined;
 const asRecords = (value: unknown): Json[] => (Array.isArray(value) ? value.filter(isRecord) : []);
 
 // Kaltura puts the ks inside some error messages (INVALID_KS quotes the whole session).
@@ -164,12 +167,12 @@ function parseFlavors(assets: Json[]): Flavor[] {
     if (!id || asset['status'] !== READY) continue;
     const flavor: Flavor = {
       id,
-      width: asNumber(asset['width']) ?? 0,
-      height: asNumber(asset['height']) ?? 0,
-      bitrate: asNumber(asset['bitrate']) ?? 0,
+      width: asCount(asset['width']) ?? 0,
+      height: asCount(asset['height']) ?? 0,
+      bitrate: asCount(asset['bitrate']) ?? 0,
     };
     // `size` is in KB.
-    const size = asNumber(asset['size']);
+    const size = asCount(asset['size']);
     if (size) flavor.sizeBytes = size * 1024;
     const fileExt = asString(asset['fileExt']);
     if (fileExt) flavor.fileExt = fileExt;
@@ -270,7 +273,8 @@ export function parsePlaybackContext(json: unknown): VideoInfo {
   const info: VideoInfo = {
     entryId,
     title: asString(entry['name']) ?? entryId,
-    durationSeconds: asNumber(entry['duration']) ?? (asNumber(entry['msDuration']) ?? 0) / 1000,
+    durationSeconds:
+      asNonNegative(entry['duration']) ?? (asNonNegative(entry['msDuration']) ?? 0) / 1000,
     flavors: parseFlavors(asRecords(context['flavorAssets'])),
     captions: downloadable ? parseCaptions(asRecords(context['playbackCaptions'])) : [],
     isProtected,
