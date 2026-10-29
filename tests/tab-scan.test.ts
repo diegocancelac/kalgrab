@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parsePlaybackContext } from '../lib/kaltura/playback-context';
 import { CHANNEL, VERSION } from '../lib/messages';
-import { collectScan, type FrameResult } from '../lib/tab-scan';
+import { collectScan, describeResult, type FrameResult } from '../lib/tab-scan';
 
 // Never a real session or account: the same fake values as the fixtures.
 const FAKE_KS = 'ZmFrZS1rcy1mb3ItdGVzdHMtb25seS0wMDAwMDAwMDAwMDA=';
@@ -141,6 +141,30 @@ describe('collectScan', () => {
     expect(frames).toEqual([
       { frameId: 6, documentId: 'doc6', videos: [video], failedOrigins: [] },
     ]);
+  });
+
+  it('describes what a frame returned without quoting it', () => {
+    expect(describeResult(undefined)).toEqual({ returned: 'nothing' });
+    expect(describeResult([])).toEqual({ returned: [] });
+    expect(describeResult([videos(), failed('https://www.kaltura.com')])).toEqual({
+      returned: ['videos(1)', 'fetch-failed'],
+    });
+    expect(describeResult([sessions(['1_abcd1234'])])).toEqual({ returned: ['sessions(1)'] });
+    expect(describeResult('videos')).toEqual({ returned: 'not a list', refused: ['not a list'] });
+    expect(describeResult(Array(21).fill(videos()))).toMatchObject({
+      refused: ['too many messages'],
+    });
+
+    const forged = describeResult([
+      videos([video, { ...video, title: `Lecture ${FAKE_V2_KS}`, extra: FAKE_KS }]),
+      { type: FAKE_KS },
+      { ...sessions(['1_abcd1234']), pageUrl: 'javascript:alert(1)' },
+    ]);
+    expect(forged).toEqual({
+      returned: ['videos(2)', 'unknown', 'sessions(1)'],
+      refused: ['videos #0 (video #1: unknown fields, title)', 'unknown #1', 'sessions #2'],
+    });
+    expect(JSON.stringify(forged)).not.toMatch(/djJ8|ZmFr|javascript/);
   });
 
   it('leaves out a frame without a document id', async () => {

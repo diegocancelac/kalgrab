@@ -43,8 +43,13 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build      # output in .output/chrome-mv3
+pnpm build:dev  # output in .output/chrome-mv3-dev, with traces in the service worker console
 pnpm zip
 ```
+
+The traces in `pnpm dev` and `pnpm build:dev` builds follow each scan and download step
+(frames, message types, validation, response) without session tokens or URLs. Production
+builds leave them out.
 
 Releases are built by CI when a `v*` tag matching the `package.json` version is pushed.
 

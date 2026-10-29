@@ -3,7 +3,8 @@
 
 import { fetchVideo } from './kaltura/fetch-video';
 import type { VideoInfo } from './kaltura/playback-context';
-import { isMainMessage, type MainMessage } from './messages';
+import { trace } from './debug';
+import { isMainMessage, videoInfoProblems, type MainMessage } from './messages';
 
 /** One frame's part of executeScript's result. */
 export interface FrameResult {
@@ -29,6 +30,42 @@ function readResult(result: unknown): MainMessage[] | null {
   return result.every(isMainMessage) ? result : null;
 }
 
+const MESSAGE_TYPES = ['videos', 'fetch-failed', 'sessions'];
+
+/**
+ * For the development traces: what a frame returned and, when it is refused, which message
+ * failed and why. It reads page data, so it only ever names known types and fields.
+ */
+export function describeResult(result: unknown): { returned: unknown; refused?: string[] } {
+  if (result === undefined || result === null) return { returned: 'nothing' };
+  if (!Array.isArray(result)) return { returned: 'not a list', refused: ['not a list'] };
+  const items: unknown[] = result;
+  const types = items.map((item) => {
+    const type = (item as { type?: unknown } | null)?.type;
+    return typeof type === 'string' && MESSAGE_TYPES.includes(type) ? type : 'unknown';
+  });
+  const returned = items.map((item, i) => {
+    const videos = (item as { videos?: unknown } | null)?.videos;
+    const sessions = (item as { sessions?: unknown } | null)?.sessions;
+    if (types[i] === 'videos' && Array.isArray(videos)) return `videos(${videos.length})`;
+    if (types[i] === 'sessions' && Array.isArray(sessions)) return `sessions(${sessions.length})`;
+    return types[i];
+  });
+  if (items.length > MAX_MESSAGES) return { returned, refused: ['too many messages'] };
+  const refused = items.flatMap((item, i) => {
+    if (isMainMessage(item)) return [];
+    const videos = (item as { videos?: unknown } | null)?.videos;
+    if (types[i] !== 'videos' || !Array.isArray(videos)) return [`${types[i]} #${i}`];
+    const list: unknown[] = videos;
+    const invalid = list.flatMap((video, v) => {
+      const problems = videoInfoProblems(video);
+      return problems.length ? [`video #${v}: ${problems.join(', ')}`] : [];
+    });
+    return [`videos #${i}${invalid.length ? ` (${invalid.join('; ')})` : ''}`];
+  });
+  return refused.length ? { returned, refused } : { returned };
+}
+
 async function collectFrame(
   frameId: number,
   documentId: string,
@@ -44,11 +81,17 @@ async function collectFrame(
       failed.add(message.origin);
     } else {
       // The page's fetch was not native: the requests go out from here, without its Referer.
+      trace(`frame ${frameId}: fetch is not native, the background requests the entries`);
       const results = await Promise.all(message.sessions.map((s) => fetchVideo(s, fetchApi)));
       for (const result of results) {
         if (result && 'video' in result) frame.videos.push(result.video);
         else if (result) failed.add(result.failedOrigin);
       }
+      trace(`frame ${frameId}: background requests done`, () => ({
+        videos: results.filter((r) => r && 'video' in r).length,
+        failed: results.filter((r) => r && 'failedOrigin' in r).length,
+        notListed: results.filter((r) => !r).length,
+      }));
     }
   }
   frame.failedOrigins = [...failed];
@@ -66,6 +109,14 @@ export async function collectScan(
   const frames = await Promise.all(
     results.map(({ frameId, documentId, result }) => {
       const messages = readResult(result);
+      trace(`frame ${frameId}`, () => {
+        const { returned, refused = [] } = describeResult(result);
+        if (!documentId) refused.push('no document id');
+        const list = Array.isArray(returned) ? `[${returned.join(', ')}]` : String(returned);
+        return refused.length
+          ? `returned ${list}, refused: ${refused.join('; ')}`
+          : `returned ${list}`;
+      });
       if (!documentId || !messages) return null;
       return collectFrame(frameId, documentId, messages, fetchApi);
     }),
