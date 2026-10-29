@@ -11,6 +11,7 @@ import {
   isSessionsMessage,
   isVideoInfo,
   isVideosMessage,
+  videoInfoProblems,
 } from '../lib/messages';
 import { parsePlaybackContext } from '../lib/kaltura/playback-context';
 
@@ -627,5 +628,48 @@ describe('isVideoInfo', () => {
     expect(isVideoInfo(video)).toBe(true);
     expect(isVideoInfo({ ...video, title: `x ${FAKE_V2_KS}` })).toBe(false);
     expect(isVideoInfo({ ...video, isProtected: true })).toBe(false);
+  });
+
+  it('rejects field names that only exist on Object.prototype', () => {
+    const video = videosMessage()['videos'][0];
+    expect(isVideoInfo({ ...video, toString: 'x' })).toBe(false);
+    expect(isVideoInfo(JSON.parse(`{"__proto__": 1, ${JSON.stringify(video).slice(1)}`))).toBe(
+      false,
+    );
+  });
+});
+
+describe('videoInfoProblems', () => {
+  const video = (): Json => videosMessage()['videos'][0];
+
+  it('is empty for a valid video', () => {
+    expect(videoInfoProblems(video())).toEqual([]);
+  });
+
+  it('names the fields that fail, never their values', () => {
+    const { title, ...untitled } = video();
+    expect(title).toBeTruthy();
+    expect(videoInfoProblems(untitled)).toEqual(['title']);
+    const problems = videoInfoProblems({
+      ...video(),
+      title: `x ${FAKE_V2_KS}`,
+      flavors: [{ id: '1_a', width: 1.5, height: 2, bitrate: 3 }],
+      captions: [{ label: 'en', isDefault: true, url: 'https://x.example/ks/abc' }],
+      extra: FAKE_V2_KS,
+    });
+    expect(problems).toEqual(['unknown fields', 'title', 'flavors', 'captions']);
+    expect(JSON.stringify(problems)).not.toContain(FAKE_V2_KS);
+  });
+
+  it('flags a restricted video that still offers a download', () => {
+    expect(videoInfoProblems({ ...video(), isProtected: true })).toEqual([
+      'downloadable while protected or blocked',
+    ]);
+  });
+
+  it('handles values that are not objects', () => {
+    for (const value of [null, 'video', [video()]]) {
+      expect(videoInfoProblems(value)).toEqual(['not an object']);
+    }
   });
 });
