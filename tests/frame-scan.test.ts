@@ -2,8 +2,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { scanFrame } from '../lib/frame-scan';
-import { CHANNEL, VERSION, isMainMessage, type MainMessage } from '../lib/messages';
+import { readFrameSessions, scanFrame } from '../lib/frame-scan';
+import {
+  CHANNEL,
+  LIMITS,
+  VERSION,
+  isMainMessage,
+  isSessionsMessage,
+  type MainMessage,
+} from '../lib/messages';
 
 // Never a real session or account: the same fake values as the fixtures.
 const FAKE_KS = 'ZmFrZS1rcy1mb3ItdGVzdHMtb25seS0wMDAwMDAwMDAwMDA=';
@@ -147,5 +154,30 @@ describe('scanFrame', () => {
       ['1_abcd1234', FAKE_KS],
       ['1_efgh5678', FAKE_KS],
     ]);
+  });
+});
+
+describe('readFrameSessions', () => {
+  it('returns null for a frame without players', () => {
+    for (const value of [undefined, {}, kalturaPlayer(), kalturaPlayer({ config: {} })]) {
+      expect(readFrameSessions(value, PAGE)).toBe(null);
+    }
+  });
+
+  it('returns one valid session per entry with the page URL', () => {
+    const message = readFrameSessions(
+      kalturaPlayer(player('1_abcd1234'), player('1_efgh5678'), player('1_abcd1234')),
+      PAGE,
+    );
+    expect(isSessionsMessage(message)).toBe(true);
+    expect(message?.pageUrl).toBe(PAGE);
+    expect(message?.sessions.map((s) => s.entryId)).toEqual(['1_abcd1234', '1_efgh5678']);
+  });
+
+  it('keeps at most the limit of sessions', () => {
+    const players = Array.from({ length: LIMITS.sessions + 5 }, (_, i) => player(`1_entry${i}`));
+    const message = readFrameSessions(kalturaPlayer(...players), PAGE);
+    expect(message?.sessions).toHaveLength(LIMITS.sessions);
+    expect(isSessionsMessage(message)).toBe(true);
   });
 });

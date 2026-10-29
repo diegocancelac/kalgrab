@@ -190,34 +190,60 @@ function isBlocked(value: unknown): value is { reason: string } {
   );
 }
 
+const REQUIRED_VIDEO_FIELDS = [
+  'entryId',
+  'title',
+  'durationSeconds',
+  'flavors',
+  'captions',
+  'isProtected',
+] as const;
+
+const VIDEO_FIELDS: Record<keyof VideoInfo, (value: unknown) => boolean> = {
+  entryId: (value) => isIdentifier(value, LIMITS.id),
+  title: (value) => isText(value, LIMITS.title),
+  durationSeconds: (value) => isNumberUpTo(value, MAX_DURATION_SECONDS),
+  flavors: (value) => isList(value, LIMITS.flavors, isFlavor),
+  captions: (value) => isList(value, LIMITS.captions, isCaption),
+  isProtected: (value) => typeof value === 'boolean',
+  blocked: isBlocked,
+  progressive: isVideoSource,
+  hls: isVideoSource,
+};
+
+/**
+ * What keeps a value from being a VideoInfo: the names of the fields that are missing or
+ * fail their check, never their values. Empty when isVideoInfo accepts it.
+ */
+export function videoInfoProblems(value: unknown): string[] {
+  if (!isPlainObject(value)) return ['not an object'];
+  const problems = Object.keys(value).some((key) => !Object.hasOwn(VIDEO_FIELDS, key))
+    ? ['unknown fields']
+    : [];
+  for (const [key, check] of Object.entries(VIDEO_FIELDS)) {
+    const present = Object.hasOwn(value, key);
+    const required = (REQUIRED_VIDEO_FIELDS as readonly string[]).includes(key);
+    if (present ? !check(value[key]) : required) problems.push(key);
+  }
+  if (!problems.length && !offersNothingWhenRestricted(value)) {
+    problems.push('downloadable while protected or blocked');
+  }
+  return problems;
+}
+
 /** One listed video, held to the same rules as inside a videos message. */
 export function isVideoInfo(value: unknown): value is VideoInfo {
-  return (
-    isPlainObject(value) &&
-    hasShape(
-      value,
-      ['entryId', 'title', 'durationSeconds', 'flavors', 'captions', 'isProtected'],
-      ['blocked', 'progressive', 'hls'],
-    ) &&
-    isIdentifier(value['entryId'], LIMITS.id) &&
-    isText(value['title'], LIMITS.title) &&
-    isNumberUpTo(value['durationSeconds'], MAX_DURATION_SECONDS) &&
-    isList(value['flavors'], LIMITS.flavors, isFlavor) &&
-    isList(value['captions'], LIMITS.captions, isCaption) &&
-    typeof value['isProtected'] === 'boolean' &&
-    (!('blocked' in value) || isBlocked(value['blocked'])) &&
-    (!('progressive' in value) || isVideoSource(value['progressive'])) &&
-    (!('hls' in value) || isVideoSource(value['hls'])) &&
-    offersNothingWhenRestricted(value)
-  );
+  return videoInfoProblems(value).length === 0;
 }
 
 // A protected or blocked video is listed so the popup can say why, but a message that
 // also offers it for download is not one the MAIN script would send.
 function offersNothingWhenRestricted(video: Json): boolean {
-  if (video['isProtected'] !== true && !('blocked' in video)) return true;
+  if (video['isProtected'] !== true && !Object.hasOwn(video, 'blocked')) return true;
   return (
-    !('progressive' in video) && !('hls' in video) && (video['captions'] as unknown[]).length === 0
+    !Object.hasOwn(video, 'progressive') &&
+    !Object.hasOwn(video, 'hls') &&
+    (video['captions'] as unknown[]).length === 0
   );
 }
 
