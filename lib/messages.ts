@@ -45,6 +45,28 @@ export type MainMessage = VideosMessage | FetchFailedMessage;
 
 type Json = Record<string, unknown>;
 
+// A listing never carries a session. A v2 ks always starts with "djJ8" (base64 of "v2|"), and
+// Kaltura URLs carry it as a "/ks/<value>" path pair or a "ks" parameter, possibly
+// percent-encoded. Any string field that shows either is rejected, not cleaned.
+const V2_KS = /(?<![A-Za-z0-9_-])djJ8/;
+const KS_IN_URL = /[/?&#;]ks(?:[=/&#;]|$)/i;
+
+function decodeOnce(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
+function carriesKs(text: string, url: boolean): boolean {
+  if (V2_KS.test(text)) return true;
+  if (!url) return false;
+  const once = decodeOnce(text);
+  const twice = decodeOnce(once);
+  return [text, once, twice].some((variant) => V2_KS.test(variant) || KS_IN_URL.test(variant));
+}
+
 // Messages cross postMessage, which clones them into plain objects.
 function isPlainObject(value: unknown): value is Json {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -69,11 +91,16 @@ function isList<T>(value: unknown, max: number, guard: (item: unknown) => item i
 }
 
 function isText(value: unknown, max: number): value is string {
-  return typeof value === 'string' && value.length <= max;
+  return typeof value === 'string' && value.length <= max && !carriesKs(value, false);
 }
 
 function isIdentifier(value: unknown, max: number): value is string {
-  return typeof value === 'string' && value.length <= max && /^[A-Za-z0-9_-]+$/.test(value);
+  return (
+    typeof value === 'string' &&
+    value.length <= max &&
+    /^[A-Za-z0-9_-]+$/.test(value) &&
+    !carriesKs(value, false)
+  );
 }
 
 function isNumberUpTo(value: unknown, max: number): value is number {
@@ -85,7 +112,10 @@ function isHttpUrl(value: unknown): value is string {
   try {
     const url = new URL(value);
     return (
-      (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      !url.username &&
+      !url.password &&
+      !carriesKs(value, true)
     );
   } catch {
     return false;

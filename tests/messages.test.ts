@@ -333,3 +333,111 @@ describe('size limits', () => {
     expect(isVideosMessage(videosMessage((v) => (v['flavors'][0].width = 1e9)))).toBe(false);
   });
 });
+
+// Never a real session; nothing here is snapshotted.
+const FAKE_KS = 'ZmFrZS1rcy1mb3ItdGVzdHMtb25seS0wMDAwMDAwMDAwMDA=';
+const FAKE_V2_KS = 'djJ8ZmFrZS1rcy1mb3ItdGVzdHM';
+
+describe('a ks smuggled into a listing', () => {
+  const urlSlots: [string, (video: Json, url: string) => void][] = [
+    ['progressive url', (v, url) => (v['progressive'].url = url)],
+    ['hls url', (v, url) => (v['hls'].url = url)],
+    ['caption url', (v, url) => (v['captions'][0].url = url)],
+  ];
+
+  const base = 'https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234';
+  const withKs: [string, string][] = [
+    ['path pair', `${base}/flavorIds/1_a/ks/${FAKE_KS}/a.m3u8`],
+    ['path pair, upper case', `${base}/flavorIds/1_a/KS/${FAKE_KS}/a.m3u8`],
+    ['path key without a value', `${base}/flavorIds/1_a/ks`],
+    ['query parameter', `${base}/a.m3u8?ks=${FAKE_KS}`],
+    ['query parameter after others', `${base}/a.m3u8?a=1&ks=${FAKE_KS}`],
+    ['query parameter, upper case', `${base}/a.m3u8?a=1&KS=${FAKE_KS}`],
+    ['query parameter without a value', `${base}/a.m3u8?ks&a=1`],
+    ['fragment', `${base}/a.m3u8#ks=${FAKE_KS}`],
+    ['semicolon parameter', `${base}/a.m3u8;ks=${FAKE_KS}`],
+    ['percent-encoded path pair', `${base}/flavorIds/1_a/%6Bs/${FAKE_KS}/a.m3u8`],
+    ['percent-encoded slashes', `${base}/flavorIds/1_a%2Fks%2F${FAKE_KS}/a.m3u8`],
+    ['percent-encoded parameter name', `${base}/a.m3u8?%6Bs=${FAKE_KS}`],
+    ['double-encoded path pair', `${base}/flavorIds/1_a%252Fks%252F${FAKE_KS}/a.m3u8`],
+    ['v2 token in the path', `${base}/x/${FAKE_V2_KS}/a.m3u8`],
+    ['v2 token as another parameter', `${base}/a.m3u8?token=${FAKE_V2_KS}`],
+    ['v2 token in the fragment', `${base}/a.m3u8#${FAKE_V2_KS}`],
+  ];
+
+  for (const [slot, set] of urlSlots) {
+    it.each(withKs)(`rejects ${slot} with a ks as: %s`, (_name, url) => {
+      expect(isVideosMessage(videosMessage((v) => set(v, url)))).toBe(false);
+    });
+  }
+
+  it('accepts URLs that merely look similar', () => {
+    for (const url of [
+      `${base}/flavorIds/1_a/a.m3u8`,
+      `${base}/a.m3u8?links=1&pks=2&tasks=3`,
+      `${base}/ks-info/a.m3u8`,
+      `${base}/tasks/a.m3u8`,
+      `${base}/a.m3u8?name=ks`,
+      `${base}/a.m3u8?x=1_${FAKE_V2_KS}`,
+    ]) {
+      expect(isVideosMessage(videosMessage((v) => (v['hls'].url = url))), url).toBe(true);
+    }
+  });
+
+  it('rejects a v2 token in any text field', () => {
+    const edits: [string, (v: Json) => void][] = [
+      ['title', (v) => (v['title'] = `Lecture ${FAKE_V2_KS}`)],
+      ['title, after a separator', (v) => (v['title'] = `session=${FAKE_V2_KS}`)],
+      ['entryId', (v) => (v['entryId'] = FAKE_V2_KS)],
+      ['caption label', (v) => (v['captions'][0].label = FAKE_V2_KS)],
+      ['languageCode', (v) => (v['captions'][0].languageCode = FAKE_V2_KS)],
+      ['flavor id', (v) => (v['flavors'][0].id = FAKE_V2_KS)],
+      ['flavorIds', (v) => (v['progressive'].flavorIds = ['1_a', FAKE_V2_KS])],
+      [
+        'blocked reason',
+        (v) => {
+          delete v['progressive'];
+          delete v['hls'];
+          v['captions'] = [];
+          v['blocked'] = { reason: `Invalid KS "${FAKE_V2_KS}"` };
+        },
+      ],
+    ];
+    for (const [name, edit] of edits) {
+      expect(isVideosMessage(videosMessage((v) => edit(v))), name).toBe(false);
+    }
+  });
+
+  it('does not reject a title only because it is long or hash-like', () => {
+    const hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    expect(isVideosMessage(videosMessage((v) => (v['title'] = `lecture_${hash}`)))).toBe(true);
+    expect(isVideosMessage(videosMessage((v) => (v['title'] = 'Notes on ksdjJ8 and 1_djJ8')))).toBe(
+      true,
+    );
+  });
+
+  it('rejects a field named ks at any level', () => {
+    for (const name of ['ks', 'KS', 'Ks']) {
+      const at: [string, (v: Json, m: Json) => void][] = [
+        ['message', (_v, m) => (m[name] = FAKE_KS)],
+        ['video', (v) => (v[name] = FAKE_KS)],
+        ['flavor', (v) => (v['flavors'][0][name] = FAKE_KS)],
+        ['caption', (v) => (v['captions'][0][name] = FAKE_KS)],
+        ['source', (v) => (v['progressive'][name] = FAKE_KS)],
+        ['blocked', (v) => (v['blocked'] = { reason: 'x', [name]: FAKE_KS })],
+        ['nested object', (v) => (v['session'] = { [name]: FAKE_KS })],
+      ];
+      for (const [where, edit] of at) {
+        expect(isVideosMessage(videosMessage(edit)), `${name} in ${where}`).toBe(false);
+      }
+      expect(isFetchFailedMessage({ ...fetchFailed(), [name]: FAKE_KS })).toBe(false);
+    }
+  });
+
+  it('rejects a ks in a fetch-failed origin', () => {
+    expect(isFetchFailedMessage(fetchFailed(`https://${FAKE_V2_KS}.example.com`))).toBe(false);
+    expect(isFetchFailedMessage(fetchFailed(`https://cdnapisec.kaltura.com/ks/${FAKE_KS}`))).toBe(
+      false,
+    );
+  });
+});
