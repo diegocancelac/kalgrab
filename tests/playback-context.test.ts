@@ -357,6 +357,22 @@ describe('parsePlaybackContext', () => {
       expect(error.message).toBe('Invalid KS "[redacted]". Error "-1,INVALID_STR"');
     });
 
+    it('redacts any token that starts with djJ8, however short', () => {
+      const error = errorOf(() =>
+        parsePlaybackContext([
+          apiException('INVALID_KS', 'Invalid KS "djJ8ZmFrZQ" for partner 1234567'),
+        ]),
+      );
+      expect(error.message).toBe('Invalid KS "[redacted]" for partner 1234567');
+    });
+
+    it('only redacts djJ8 at the start of a token', () => {
+      const error = errorOf(() =>
+        parsePlaybackContext([apiException('X', 'Entry 1_djJ8abcd is hidden')]),
+      );
+      expect(error.message).toBe('Entry 1_djJ8abcd is hidden');
+    });
+
     it('falls back to the code when the message is missing', () => {
       const error = errorOf(() =>
         parsePlaybackContext({ objectType: 'KalturaAPIException', code: 'INTERNAL_SERVER_ERROR' }),

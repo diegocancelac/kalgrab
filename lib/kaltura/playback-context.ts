@@ -120,9 +120,13 @@ const asNumber = (value: unknown): number | undefined =>
 const asRecords = (value: unknown): Json[] => (Array.isArray(value) ? value.filter(isRecord) : []);
 
 // Kaltura puts the ks inside some error messages (INVALID_KS quotes the whole session).
-// parsePlaybackContext does not know the ks, so any long token made of ks characters is cut.
+// parsePlaybackContext does not know the ks, so two rules cut it: a v2 session always starts
+// with "djJ8" (base64 of "v2|"), whatever its length, and any other long token made of ks
+// characters goes too.
 function redactKs(text: string): string {
-  return text.replace(/[A-Za-z0-9_=-]{32,}/g, '[redacted]');
+  return text
+    .replace(/(?<![A-Za-z0-9_=-])djJ8[A-Za-z0-9_=-]*/g, '[redacted]')
+    .replace(/[A-Za-z0-9_=-]{32,}/g, '[redacted]');
 }
 
 function throwIfApiException(value: unknown): void {
