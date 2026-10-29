@@ -2,7 +2,7 @@ import preact from '@preact/preset-vite';
 import { defineConfig } from 'wxt';
 
 export default defineConfig({
-  manifest: {
+  manifest: ({ mode }) => ({
     name: 'Kalgrab',
     description: 'Download videos from Kaltura players.',
     permissions: ['scripting', 'downloads'],
@@ -10,7 +10,10 @@ export default defineConfig({
     // cross-origin iframe whose domain is unknown ahead of time, which activeTab
     // does not cover.
     optional_host_permissions: ['*://*/*'],
-  },
+    // Development builds get it at install, so testing does not depend on the popup's
+    // request. Production must never declare it (CI checks the built manifest).
+    ...(mode === 'development' && { host_permissions: ['*://*/*'] }),
+  }),
   vite: () => ({
     plugins: [preact()],
   }),
