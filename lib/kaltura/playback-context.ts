@@ -142,17 +142,13 @@ function parseHttpUrl(value: unknown): URL | null {
   }
 }
 
-// Kaltura URL parameters are path segments ("/name/value") or, less often, query params.
-function withoutParams(url: URL, names: string[]): string {
+// A ks the API echoes in a source URL, as a "/ks/<value>" path pair or a ?ks= parameter.
+function withoutKs(url: URL): string {
   const parts = url.pathname.split('/');
-  for (const name of names) {
-    const at = parts.indexOf(name);
-    if (at >= 0) parts.splice(at, 2);
-  }
+  const at = parts.indexOf('ks');
+  if (at >= 0) parts.splice(at, 2);
   url.pathname = parts.join('/');
-  for (const name of names) {
-    if (url.searchParams.has(name)) url.searchParams.delete(name);
-  }
+  if (url.searchParams.has('ks')) url.searchParams.delete('ks');
   return url.href;
 }
 
@@ -179,18 +175,18 @@ function parseFlavors(assets: Json[]): Flavor[] {
 }
 
 // Only webVttUrl is used: Kaltura serves WebVTT even when the asset was uploaded as SRT or
-// DFXP, and that is what vttToSrt expects. The URL may address one segment of the track
-// (a segmentIndex parameter); dropping it asks for the whole file.
+// DFXP, and that is what vttToSrt expects. The URL is kept exactly as the API gives it (it
+// is what the player fetches for the whole track); only withKs adds the session to it.
 function parseCaptions(items: Json[]): Caption[] {
   const captions: Caption[] = [];
   for (const item of items) {
-    const url = parseHttpUrl(item['webVttUrl']);
-    if (!url) continue;
+    const url = asString(item['webVttUrl']);
+    if (!url || !parseHttpUrl(url)) continue;
     const languageCode = asString(item['languageCode']);
     const caption: Caption = {
       label: asString(item['label']) || asString(item['language']) || languageCode || 'Captions',
       isDefault: item['isDefault'] === true,
-      url: withoutParams(url, ['ks', 'segmentIndex']),
+      url,
     };
     if (languageCode) caption.languageCode = languageCode;
     captions.push(caption);
@@ -212,7 +208,7 @@ function pickSource(sources: Json[], format: string): VideoSource | undefined {
     const url = parseHttpUrl(source['url']);
     if (url?.protocol !== 'https:') continue;
     const flavorIds = (asString(source['flavorIds']) ?? '').split(',').filter(Boolean);
-    return { url: withoutParams(url, ['ks']), flavorIds };
+    return { url: withoutKs(url), flavorIds };
   }
   return undefined;
 }

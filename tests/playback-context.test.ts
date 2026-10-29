@@ -438,23 +438,15 @@ describe('captions', () => {
     ]);
   });
 
-  it('asks for the whole file: segmentIndex as a path parameter is dropped', () => {
-    const info = withCaptions([
-      { label: 'English', webVttUrl: `${VTT}/segmentDuration/900/segmentIndex/3/version/1` },
-    ]);
-    expect(info.captions[0]?.url).toBe(`${VTT}/segmentDuration/900/version/1`);
-  });
-
-  it('asks for the whole file: segmentIndex as a query parameter is dropped', () => {
-    const info = withCaptions([
-      { label: 'English', webVttUrl: `${VTT}?segmentIndex=3&format=vtt` },
-    ]);
-    expect(info.captions[0]?.url).toBe(`${VTT}?format=vtt`);
-  });
-
-  it('leaves a URL without segmentIndex byte for byte', () => {
-    const url = `${VTT}/version/1?a=b%20c`;
-    expect(withCaptions([{ label: 'x', webVttUrl: url }]).captions[0]?.url).toBe(url);
+  it('keeps webVttUrl exactly as the API gives it, segmentIndex included', () => {
+    const urls = [
+      `${VTT}/segmentDuration/900/segmentIndex/3/version/1`,
+      `${VTT}?segmentIndex=3&format=vtt`,
+      `${VTT}/version/1?a=b%20c`,
+      `${VTT}/segmentIndex/{segmentIndex}`,
+    ];
+    const info = withCaptions(urls.map((webVttUrl) => ({ label: 'x', webVttUrl })));
+    expect(info.captions.map((c) => c.url)).toEqual(urls);
   });
 
   it('skips tracks without a usable webVttUrl', () => {
@@ -474,11 +466,6 @@ describe('captions', () => {
       { webVttUrl: `${VTT}3` },
     ]);
     expect(info.captions.map((c) => c.label)).toEqual(['French', 'de', 'Captions']);
-  });
-
-  it('drops a ks that the API echoes in the URL', () => {
-    const info = withCaptions([{ label: 'x', webVttUrl: `${VTT}/ks/${FAKE_KS}/version/1` }]);
-    expect(info.captions[0]?.url).toBe(`${VTT}/version/1`);
   });
 
   it('offers no captions when the video is protected', () => {
