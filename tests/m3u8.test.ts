@@ -51,6 +51,29 @@ describe('parseAttributes', () => {
       AUDIO: 'aud',
     });
   });
+
+  it('keeps "=" inside quotes, e.g. a URI with a query string', () => {
+    expect(parseAttributes('URI="https://keys.example.com/k?id=7&sig=a=b",METHOD=AES-128')).toEqual(
+      {
+        URI: 'https://keys.example.com/k?id=7&sig=a=b',
+        METHOD: 'AES-128',
+      },
+    );
+  });
+
+  it('keeps both "," and "=" inside one quoted value', () => {
+    expect(parseAttributes('NAME="a,B=c",GROUP-ID="g"')).toEqual({
+      NAME: 'a,B=c',
+      'GROUP-ID': 'g',
+    });
+  });
+
+  it('keeps "=" in an unquoted value', () => {
+    expect(parseAttributes('URI=a.m3u8?x=1,BANDWIDTH=5')).toEqual({
+      URI: 'a.m3u8?x=1',
+      BANDWIDTH: '5',
+    });
+  });
 });
 
 describe('master playlist', () => {
