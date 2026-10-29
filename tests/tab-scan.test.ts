@@ -122,6 +122,27 @@ describe('collectScan', () => {
     expect(bodies).toEqual([]);
   });
 
+  it('keeps the other frames when one could not be injected or its script threw', async () => {
+    // With allFrames, Chrome leaves out the frames it could not inject (sandboxed, error
+    // pages, the PDF viewer, other extensions' frames); a frame whose main() threw or whose
+    // promise rejected comes back without a usable result.
+    const { fetchApi } = backgroundFetch();
+    const frames = await collectScan(
+      [
+        frame(0, []),
+        { frameId: 1, documentId: 'doc1' },
+        frame(2, undefined),
+        frame(3, null),
+        { frameId: 4, documentId: 'doc4', error: new Error('Script threw') } as FrameResult,
+        frame(6, [videos()]),
+      ],
+      fetchApi,
+    );
+    expect(frames).toEqual([
+      { frameId: 6, documentId: 'doc6', videos: [video], failedOrigins: [] },
+    ]);
+  });
+
   it('leaves out a frame without a document id', async () => {
     const { fetchApi } = backgroundFetch();
     expect(await collectScan([frame(1, [videos()], '')], fetchApi)).toEqual([]);
