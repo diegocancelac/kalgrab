@@ -1,10 +1,10 @@
-// One pass over a frame, run in the page's MAIN world when the popup opens. What it returns
-// goes back to the background as the result of executeScript.
+// Runs in the page's MAIN world, from scripts the background injects with executeScript.
+// What they return goes back to the background as the result of that call.
 
 import { fetchVideo } from './kaltura/fetch-video';
 import type { VideoInfo } from './kaltura/playback-context';
 import { readPlayerSessions } from './kaltura/player-v7';
-import { CHANNEL, LIMITS, VERSION, type MainMessage } from './messages';
+import { CHANNEL, LIMITS, VERSION, type MainMessage, type SessionsMessage } from './messages';
 
 export interface FrameScanEnv {
   /** window.KalturaPlayer. */
@@ -17,6 +17,13 @@ export interface FrameScanEnv {
 
 const header = { channel: CHANNEL, version: VERSION } as const;
 
+/** The sessions of the frame's players, one per entry, or null when there are none. */
+export function readFrameSessions(kalturaPlayer: unknown, pageUrl: string): SessionsMessage | null {
+  const byEntry = new Map(readPlayerSessions(kalturaPlayer).map((s) => [s.entryId, s]));
+  const sessions = [...byEntry.values()].slice(0, LIMITS.sessions);
+  return sessions.length ? { ...header, type: 'sessions', pageUrl, sessions } : null;
+}
+
 /**
  * Lists the entries of the frame's players. The requests go out with the page's own fetch,
  * so they carry its Referer as the player's do. When that fetch is not native (a page
@@ -24,13 +31,12 @@ const header = { channel: CHANNEL, version: VERSION } as const;
  * and the background makes the requests.
  */
 export async function scanFrame(env: FrameScanEnv): Promise<MainMessage[]> {
-  const byEntry = new Map(readPlayerSessions(env.kalturaPlayer).map((s) => [s.entryId, s]));
-  const sessions = [...byEntry.values()].slice(0, LIMITS.sessions);
-  if (!sessions.length) return [];
-  if (!env.fetch) return [{ ...header, type: 'sessions', pageUrl: env.pageUrl, sessions }];
+  const found = readFrameSessions(env.kalturaPlayer, env.pageUrl);
+  if (!found) return [];
+  if (!env.fetch) return [found];
 
   const fetchApi = env.fetch;
-  const results = await Promise.all(sessions.map((session) => fetchVideo(session, fetchApi)));
+  const results = await Promise.all(found.sessions.map((s) => fetchVideo(s, fetchApi)));
   const videos: VideoInfo[] = [];
   const failedOrigins = new Set<string>();
   for (const result of results) {
