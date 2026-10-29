@@ -181,7 +181,17 @@ function isVideoInfo(value: unknown): value is VideoInfo {
     typeof value['isProtected'] === 'boolean' &&
     (!('blocked' in value) || isBlocked(value['blocked'])) &&
     (!('progressive' in value) || isVideoSource(value['progressive'])) &&
-    (!('hls' in value) || isVideoSource(value['hls']))
+    (!('hls' in value) || isVideoSource(value['hls'])) &&
+    offersNothingWhenRestricted(value)
+  );
+}
+
+// A protected or blocked video is listed so the popup can say why, but a message that
+// also offers it for download is not one the MAIN script would send.
+function offersNothingWhenRestricted(video: Json): boolean {
+  if (video['isProtected'] !== true && !('blocked' in video)) return true;
+  return (
+    !('progressive' in video) && !('hls' in video) && (video['captions'] as unknown[]).length === 0
   );
 }
 

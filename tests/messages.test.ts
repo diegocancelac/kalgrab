@@ -213,6 +213,46 @@ describe('malformed messages', () => {
   });
 });
 
+describe('protected and blocked videos', () => {
+  const offers: [string, (v: Json) => void][] = [
+    ['a progressive source', (v) => (v['progressive'] = { url: CAPTION_URL, flavorIds: ['1_a'] })],
+    ['an hls source', (v) => (v['hls'] = { url: CAPTION_URL, flavorIds: ['1_a'] })],
+    ['a caption', (v) => (v['captions'] = [{ label: 'x', isDefault: false, url: CAPTION_URL }])],
+  ];
+
+  const restrictions: [string, (v: Json) => void][] = [
+    ['protected', (v) => (v['isProtected'] = true)],
+    ['blocked', (v) => (v['blocked'] = { reason: 'Only available on campus.' })],
+  ];
+
+  for (const [restriction, restrict] of restrictions) {
+    it(`accepts a ${restriction} video that offers nothing`, () => {
+      const message = videosMessage((v) => {
+        restrict(v);
+        delete v['progressive'];
+        delete v['hls'];
+        v['captions'] = [];
+      });
+      expect(isVideosMessage(message)).toBe(true);
+    });
+
+    it.each(offers)(`rejects a ${restriction} video that offers %s`, (_name, offer) => {
+      const message = videosMessage((v) => {
+        restrict(v);
+        delete v['progressive'];
+        delete v['hls'];
+        v['captions'] = [];
+        offer(v);
+      });
+      expect(isVideosMessage(message)).toBe(false);
+    });
+  }
+
+  it('rejects the sample video marked as protected without removing its sources', () => {
+    expect(isVideosMessage(videosMessage((v) => (v['isProtected'] = true)))).toBe(false);
+  });
+});
+
 describe('URLs', () => {
   const urlSlots: [string, (video: Json, url: string) => void][] = [
     ['progressive url', (v, url) => (v['progressive'].url = url)],
