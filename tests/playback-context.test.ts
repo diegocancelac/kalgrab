@@ -220,6 +220,31 @@ describe('parsePlaybackContext', () => {
     expect(info.title).toBe('1_abcd1234');
   });
 
+  it('treats negative, fractional or non-finite flavor numbers as unknown', () => {
+    const info = parsePlaybackContext(
+      sample((_response, context) => {
+        Object.assign(context.flavorAssets[0], { width: -640, height: 360.5, bitrate: NaN });
+        Object.assign(context.flavorAssets[1], { size: 3778.5 });
+        Object.assign(context.flavorAssets[2], { size: -1, width: Infinity });
+      }),
+    );
+    expect(info.flavors[0]).toMatchObject({ width: 0, height: 0, bitrate: 0 });
+    expect(info.flavors[1]?.sizeBytes).toBeUndefined();
+    expect(info.flavors[2]?.sizeBytes).toBeUndefined();
+    expect(info.flavors[2]?.width).toBe(0);
+  });
+
+  it('treats a negative duration as unknown', () => {
+    const info = parsePlaybackContext(
+      sample((response) => {
+        const entry = response[0]?.['objects'][0];
+        entry.duration = -5;
+        entry.msDuration = -5000;
+      }),
+    );
+    expect(info.durationSeconds).toBe(0);
+  });
+
   describe('protection', () => {
     const widevine = [
       { scheme: 'widevine.WidevineCencDrmProfile', licenseURL: 'https://license.example.com' },
