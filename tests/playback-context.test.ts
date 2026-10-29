@@ -396,3 +396,91 @@ describe('parsePlaybackContext', () => {
     expect(info.hls?.url).toMatch(/a\.m3u8$/);
   });
 });
+
+describe('captions', () => {
+  const VTT =
+    'https://cdnapisec.kaltura.com/api_v3/index.php/service/caption_captionasset/action/serveWebVTT/captionAssetId/1_cap00001';
+
+  const withCaptions = (captions: Json[]) =>
+    parsePlaybackContext(
+      sample((_response, context) => {
+        context.playbackCaptions = captions;
+      }),
+    );
+
+  it('is empty for the sample response', () => {
+    expect(parsePlaybackContext(fixture).captions).toEqual([]);
+  });
+
+  it('lists tracks by webVttUrl, not by the original file url', () => {
+    const info = withCaptions([
+      {
+        label: 'English',
+        language: 'English',
+        languageCode: 'en',
+        format: '2',
+        isDefault: true,
+        url: 'https://cdnapisec.kaltura.com/serve/original.dfxp',
+        webVttUrl: `${VTT}/version/1`,
+      },
+      { language: 'Spanish', languageCode: 'es', webVttUrl: `${VTT}2/version/1` },
+    ]);
+    expect(info.captions).toEqual([
+      { label: 'English', languageCode: 'en', isDefault: true, url: `${VTT}/version/1` },
+      { label: 'Spanish', languageCode: 'es', isDefault: false, url: `${VTT}2/version/1` },
+    ]);
+  });
+
+  it('asks for the whole file: segmentIndex as a path parameter is dropped', () => {
+    const info = withCaptions([
+      { label: 'English', webVttUrl: `${VTT}/segmentDuration/900/segmentIndex/3/version/1` },
+    ]);
+    expect(info.captions[0]?.url).toBe(`${VTT}/segmentDuration/900/version/1`);
+  });
+
+  it('asks for the whole file: segmentIndex as a query parameter is dropped', () => {
+    const info = withCaptions([
+      { label: 'English', webVttUrl: `${VTT}?segmentIndex=3&format=vtt` },
+    ]);
+    expect(info.captions[0]?.url).toBe(`${VTT}?format=vtt`);
+  });
+
+  it('leaves a URL without segmentIndex byte for byte', () => {
+    const url = `${VTT}/version/1?a=b%20c`;
+    expect(withCaptions([{ label: 'x', webVttUrl: url }]).captions[0]?.url).toBe(url);
+  });
+
+  it('skips tracks without a usable webVttUrl', () => {
+    const info = withCaptions([
+      { label: 'No VTT', url: 'https://cdnapisec.kaltura.com/serve/a.srt' },
+      { label: 'Bad', webVttUrl: 'javascript:alert(1)' },
+      { label: 'Garbage', webVttUrl: 42 },
+      { label: 'Good', webVttUrl: VTT },
+    ]);
+    expect(info.captions.map((c) => c.label)).toEqual(['Good']);
+  });
+
+  it('labels a track from language, language code or a default', () => {
+    const info = withCaptions([
+      { language: 'French', webVttUrl: `${VTT}1` },
+      { languageCode: 'de', webVttUrl: `${VTT}2` },
+      { webVttUrl: `${VTT}3` },
+    ]);
+    expect(info.captions.map((c) => c.label)).toEqual(['French', 'de', 'Captions']);
+  });
+
+  it('drops a ks that the API echoes in the URL', () => {
+    const info = withCaptions([{ label: 'x', webVttUrl: `${VTT}/ks/${FAKE_KS}/version/1` }]);
+    expect(info.captions[0]?.url).toBe(`${VTT}/version/1`);
+  });
+
+  it('offers no captions when the video is protected', () => {
+    const info = parsePlaybackContext(
+      sample((_response, context) => {
+        context.playbackCaptions = [{ label: 'English', webVttUrl: VTT }];
+        context.sources[0].drm = [{ scheme: 'widevine' }];
+      }),
+    );
+    expect(info.captions).toEqual([]);
+  });
+});

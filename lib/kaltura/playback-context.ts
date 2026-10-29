@@ -71,6 +71,14 @@ export interface Flavor {
   fileExt?: string;
 }
 
+export interface Caption {
+  label: string;
+  languageCode?: string;
+  isDefault: boolean;
+  /** WebVTT for the whole track. */
+  url: string;
+}
+
 export interface VideoSource {
   url: string;
   flavorIds: string[];
@@ -82,6 +90,8 @@ export interface VideoInfo {
   durationSeconds: number;
   /** Every ready flavor. A source can only serve the ones in its own `flavorIds`. */
   flavors: Flavor[];
+  /** Empty when the video is protected or blocked. */
+  captions: Caption[];
   /** DRM on any source. */
   isProtected: boolean;
   /** An access-control rule forbids (or limits to a preview) playing the video. */
@@ -160,6 +170,26 @@ function parseFlavors(assets: Json[]): Flavor[] {
   return flavors;
 }
 
+// Only webVttUrl is used: Kaltura serves WebVTT even when the asset was uploaded as SRT or
+// DFXP, and that is what vttToSrt expects. The URL may address one segment of the track
+// (a segmentIndex parameter); dropping it asks for the whole file.
+function parseCaptions(items: Json[]): Caption[] {
+  const captions: Caption[] = [];
+  for (const item of items) {
+    const url = parseHttpUrl(item['webVttUrl']);
+    if (!url) continue;
+    const languageCode = asString(item['languageCode']);
+    const caption: Caption = {
+      label: asString(item['label']) || asString(item['language']) || languageCode || 'Captions',
+      isDefault: item['isDefault'] === true,
+      url: withoutParams(url, ['ks', 'segmentIndex']),
+    };
+    if (languageCode) caption.languageCode = languageCode;
+    captions.push(caption);
+  }
+  return captions;
+}
+
 // Fails closed: anything but a missing value or an empty list counts as DRM.
 function hasDrm(source: Json): boolean {
   const drm = source['drm'];
@@ -234,6 +264,7 @@ export function parsePlaybackContext(json: unknown): VideoInfo {
     title: asString(entry['name']) ?? entryId,
     durationSeconds: asNumber(entry['duration']) ?? (asNumber(entry['msDuration']) ?? 0) / 1000,
     flavors: parseFlavors(asRecords(context['flavorAssets'])),
+    captions: downloadable ? parseCaptions(asRecords(context['playbackCaptions'])) : [],
     isProtected,
   };
   if (blocked) info.blocked = blocked;
