@@ -301,6 +301,17 @@ export function flavorUrl(source: VideoSource, flavorId: string): string {
   return url.href;
 }
 
+// Accepts origins or full URLs (serviceUrl may carry a path); entries that are not http(s) URLs
+// are ignored, so a bad config entry can only shrink the list.
+function originsOf(urls: readonly string[]): Set<string> {
+  const origins = new Set<string>();
+  for (const value of urls) {
+    const url = parseHttpUrl(value);
+    if (url) origins.add(url.origin);
+  }
+  return origins;
+}
+
 /**
  * Adds the ks to a Kaltura URL. This is the only place that puts it in one, so the result
  * must never be logged or stored; erase it from the downloads history once it is used.
@@ -310,9 +321,13 @@ export function flavorUrl(source: VideoSource, flavorId: string): string {
  *   The pair goes before that file name, or before the last pair when the path ends in one
  *   (".../name/a.mp4"), so the pairs stay aligned.
  * - api_v3 endpoints (captions) take it as a "ks" query parameter.
- * - Anything else is rejected rather than getting a session it was not meant for.
+ *
+ * The URL must also be on one of `allowedOrigins`, the player's own serviceUrl / cdnUrl, so
+ * a URL that merely looks like Kaltura's (or a page-supplied one) never gets the session.
+ * Nothing is trusted by host name: a self-hosted Kaltura works as long as its origins are
+ * listed. Anything else is rejected.
  */
-export function withKs(url: string, ks: string): string {
+export function withKs(url: string, ks: string, allowedOrigins: readonly string[]): string {
   if (!ks) throw new Error('A ks is required.');
   let target: URL;
   try {
@@ -322,6 +337,9 @@ export function withKs(url: string, ks: string): string {
   }
   if (target.protocol !== 'https:' && target.protocol !== 'http:') {
     throw new Error('Cannot add the ks: not an http(s) URL.');
+  }
+  if (!originsOf(allowedOrigins).has(target.origin)) {
+    throw new Error(`Cannot add the ks: ${target.origin} is not one of the player's origins.`);
   }
 
   const parts = target.pathname.split('/');

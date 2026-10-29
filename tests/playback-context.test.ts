@@ -520,6 +520,9 @@ describe('flavorUrl', () => {
 });
 
 describe('withKs', () => {
+  const KALTURA = ['https://cdnapisec.kaltura.com'];
+  const add = (url: string, ks: string, origins: readonly string[] = KALTURA) =>
+    withKs(url, ks, origins);
   const HOST = 'https://cdnapisec.kaltura.com/p/1234567/sp/1234567';
 
   // After "playManifest" the path is key/value pairs plus an optional lone file name.
@@ -536,7 +539,7 @@ describe('withKs', () => {
   describe('playManifest URLs', () => {
     it('inserts ks/<value> before the file name of an HLS URL', () => {
       expect(
-        withKs(
+        add(
           `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480/a.m3u8`,
           FAKE_KS,
         ),
@@ -547,7 +550,7 @@ describe('withKs', () => {
 
     it('keeps name/a.mp4 as the last pair of a progressive URL', () => {
       const url = `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4`;
-      expect(withKs(url, FAKE_KS)).toBe(
+      expect(add(url, FAKE_KS)).toBe(
         `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/ks/${FAKE_KS}/name/a.mp4`,
       );
     });
@@ -561,31 +564,31 @@ describe('withKs', () => {
       ];
       for (const url of urls) {
         const before = pairsOf(url);
-        const after = pairsOf(withKs(url, FAKE_KS));
+        const after = pairsOf(add(url, FAKE_KS));
         expect(after).toHaveLength(before.length + 1);
         expect(after.filter(([key]) => key === 'ks')).toEqual([['ks', FAKE_KS]]);
         expect(after.filter(([key]) => key !== 'ks')).toEqual(before);
-        expect(withKs(url, FAKE_KS).endsWith(url.split('/').slice(-1)[0] ?? '')).toBe(true);
+        expect(add(url, FAKE_KS).endsWith(url.split('/').slice(-1)[0] ?? '')).toBe(true);
       }
     });
 
     it('works on the URLs of the sample response, one flavor at a time', () => {
       const { progressive, hls } = parsePlaybackContext(fixture);
       if (!progressive || !hls) throw new Error('the sample has no sources');
-      const mp4 = withKs(flavorUrl(progressive, '1_flav0360'), FAKE_KS);
+      const mp4 = add(flavorUrl(progressive, '1_flav0360'), FAKE_KS);
       expect(mp4).toContain(
         `/flavorIds/1_flav0360/deliveryProfileId/9001/protocol/https/format/url/ks/${FAKE_KS}/name/a.mp4`,
       );
-      expect(withKs(hls.url, FAKE_KS)).toContain(`/format/applehttp/ks/${FAKE_KS}/a.m3u8`);
+      expect(add(hls.url, FAKE_KS)).toContain(`/format/applehttp/ks/${FAKE_KS}/a.m3u8`);
     });
 
     it('keeps "=" padding readable and escapes what would break the path', () => {
-      const url = withKs(`${HOST}/playManifest/entryId/x/flavorIds/1_a/a.m3u8`, 'ab=/c d');
+      const url = add(`${HOST}/playManifest/entryId/x/flavorIds/1_a/a.m3u8`, 'ab=/c d');
       expect(url).toContain('/ks/ab=%2Fc%20d/a.m3u8');
     });
 
     it('rejects a playManifest URL without parameters', () => {
-      expect(() => withKs(`${HOST}/playManifest`, FAKE_KS)).toThrow(/no parameters/);
+      expect(() => add(`${HOST}/playManifest`, FAKE_KS)).toThrow(/no parameters/);
     });
   });
 
@@ -594,37 +597,37 @@ describe('withKs', () => {
       'https://cdnapisec.kaltura.com/api_v3/index.php/service/caption_captionasset/action/serveWebVTT/captionAssetId/1_cap00001/segmentIndex/-1';
 
     it('adds ?ks= when there is no query', () => {
-      expect(withKs(CAPTION, FAKE_KS)).toBe(`${CAPTION}?ks=${encodeURIComponent(FAKE_KS)}`);
+      expect(add(CAPTION, FAKE_KS)).toBe(`${CAPTION}?ks=${encodeURIComponent(FAKE_KS)}`);
     });
 
     it('appends &ks= after an existing query, which stays byte for byte', () => {
       const url = `${CAPTION}?a=b%20c&d=e`;
-      expect(withKs(url, FAKE_KS)).toBe(`${url}&ks=${encodeURIComponent(FAKE_KS)}`);
+      expect(add(url, FAKE_KS)).toBe(`${url}&ks=${encodeURIComponent(FAKE_KS)}`);
     });
 
     it('replaces a ks that the URL already has', () => {
-      const result = new URL(withKs(`${CAPTION}?ks=old&a=b`, FAKE_KS));
+      const result = new URL(add(`${CAPTION}?ks=old&a=b`, FAKE_KS));
       expect(result.searchParams.getAll('ks')).toEqual([FAKE_KS]);
       expect(result.searchParams.get('a')).toBe('b');
     });
 
     it('also matches a bare /api_v3 path', () => {
-      expect(withKs('https://cdnapisec.kaltura.com/api_v3', 'k')).toContain('?ks=k');
+      expect(add('https://cdnapisec.kaltura.com/api_v3', 'k')).toContain('?ks=k');
     });
   });
 
   describe('rejections', () => {
     it('refuses URLs it does not know how to place a ks in', () => {
-      expect(() => withKs('https://example.com/video.mp4', FAKE_KS)).toThrow(/unknown kind/);
+      expect(() => add('https://cdnapisec.kaltura.com/video.mp4', FAKE_KS)).toThrow(/unknown kind/);
       expect(() =>
-        withKs('https://cdnapisec.kaltura.com/p/1/thumbnail/entry_id/x', FAKE_KS),
+        add('https://cdnapisec.kaltura.com/p/1/thumbnail/entry_id/x', FAKE_KS),
       ).toThrow();
     });
 
     it('refuses invalid or non-http(s) URLs and a missing ks', () => {
-      expect(() => withKs('not a url', FAKE_KS)).toThrow(/valid URL/);
-      expect(() => withKs('javascript:alert(1)', FAKE_KS)).toThrow(/http/);
-      expect(() => withKs(`${'https://x.example.com/api_v3'}`, '')).toThrow(/ks is required/);
+      expect(() => add('not a url', FAKE_KS)).toThrow(/valid URL/);
+      expect(() => add('javascript:alert(1)', FAKE_KS)).toThrow(/http/);
+      expect(() => add(`${'https://x.example.com/api_v3'}`, '')).toThrow(/ks is required/);
     });
 
     it('never puts the ks in an error message', () => {
@@ -633,10 +636,86 @@ describe('withKs', () => {
         'not a url',
         'ftp://x.example.com/api_v3',
       ]) {
-        const attempt = () => withKs(url, FAKE_KS);
+        const attempt = () => add(url, FAKE_KS);
         expect(attempt).toThrow();
         expect(attempt).not.toThrow(FAKE_KS);
       }
+    });
+  });
+
+  describe('origins', () => {
+    const MANIFEST = '/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_a/a.m3u8';
+    const CAPTION =
+      '/api_v3/index.php/service/caption_captionasset/action/serveWebVTT/captionAssetId/1_c';
+
+    it('works with a self-hosted Kaltura whose origin is listed', () => {
+      const origins = ['https://video.example.edu'];
+      expect(withKs(`https://video.example.edu${MANIFEST}`, FAKE_KS, origins)).toBe(
+        `https://video.example.edu${MANIFEST.replace('/a.m3u8', `/ks/${FAKE_KS}/a.m3u8`)}`,
+      );
+      expect(withKs(`https://video.example.edu${CAPTION}`, FAKE_KS, origins)).toBe(
+        `https://video.example.edu${CAPTION}?ks=${encodeURIComponent(FAKE_KS)}`,
+      );
+    });
+
+    it('does not trust kaltura.com by name when it is not listed', () => {
+      const origins = ['https://video.example.edu'];
+      expect(() => withKs(`https://cdnapisec.kaltura.com${MANIFEST}`, FAKE_KS, origins)).toThrow(
+        /not one of the player's origins/,
+      );
+    });
+
+    it('accepts any of several origins (serviceUrl and cdnUrl)', () => {
+      const origins = ['https://api.example.edu', 'https://cdn.example.edu:8443'];
+      expect(withKs(`https://api.example.edu${CAPTION}`, 'k', origins)).toContain('?ks=k');
+      expect(withKs(`https://cdn.example.edu:8443${MANIFEST}`, 'k', origins)).toContain('/ks/k/');
+    });
+
+    it('reduces listed URLs to their origin', () => {
+      const origins = ['https://video.example.edu/some/prefix/', 'https://cdn.example.edu?x=1'];
+      expect(withKs(`https://video.example.edu${MANIFEST}`, 'k', origins)).toContain('/ks/k/');
+      expect(withKs(`https://cdn.example.edu${MANIFEST}`, 'k', origins)).toContain('/ks/k/');
+    });
+
+    it('rejects look-alike hosts, other ports and other schemes', () => {
+      const origins = ['https://cdnapisec.kaltura.com'];
+      const lookAlikes = [
+        'https://cdnapisec.kaltura.com.evil.example',
+        'https://evil.example/https://cdnapisec.kaltura.com',
+        'https://cdnapisec.kaltura.com@evil.example',
+        'https://xcdnapisec.kaltura.com',
+        'https://kaltura.com',
+        'https://cdnapisec.kaltura.com:8443',
+        'http://cdnapisec.kaltura.com',
+      ];
+      for (const base of lookAlikes) {
+        const attempt = () => withKs(`${base}${MANIFEST}`, FAKE_KS, origins);
+        expect(attempt, base).toThrow(/not one of the player's origins/);
+        expect(attempt, base).not.toThrow(FAKE_KS);
+        expect(() => withKs(`${base}${CAPTION}`, FAKE_KS, origins), base).toThrow();
+      }
+    });
+
+    it('rejects everything when the list is empty or has no usable entry', () => {
+      const url = `https://cdnapisec.kaltura.com${MANIFEST}`;
+      expect(() => withKs(url, FAKE_KS, [])).toThrow(/player's origins/);
+      expect(() => withKs(url, FAKE_KS, ['not a url', 'ftp://cdnapisec.kaltura.com', ''])).toThrow(
+        /player's origins/,
+      );
+    });
+
+    it('still requires a Kaltura URL shape on a listed origin', () => {
+      expect(() =>
+        withKs('https://video.example.edu/files/lecture.mp4', FAKE_KS, [
+          'https://video.example.edu',
+        ]),
+      ).toThrow(/unknown kind/);
+    });
+
+    it('names the rejected origin but not the ks', () => {
+      expect(() =>
+        withKs(`https://evil.example${MANIFEST}`, FAKE_KS, ['https://video.example.edu']),
+      ).toThrow('https://evil.example');
     });
   });
 });
