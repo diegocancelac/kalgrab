@@ -32,7 +32,9 @@ export function buildPlaybackContextRequest(input: PlaybackContextRequestInput):
   if (!input.ks) throw new Error('A ks is required.');
   if (!input.entryId) throw new Error('An entryId is required.');
 
-  const url = `${base.origin}${base.pathname.replace(/\/+$/, '')}/api_v3/service/multirequest`;
+  // Player v7 gives serviceUrl with the "/api_v3" suffix already ("https://www.kaltura.com/api_v3").
+  const path = base.pathname.replace(/\/+$/, '').replace(/\/api_v3$/, '');
+  const url = `${base.origin}${path}/api_v3/service/multirequest`;
   const body = {
     format: 1,
     ks: input.ks,
