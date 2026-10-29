@@ -18,16 +18,14 @@ implemented yet.
 
 ## Permissions
 
-| Permission           | Why                                                                                                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `*://*/*` (optional) | Read the player inside iframes whose domain is not known in advance. Requested from the popup on first use; can be revoked or limited to specific sites from Chrome's extension settings. |
-| `scripting`          | Register the content scripts once access is granted.                                                                                                                                      |
-| `downloads`          | Save videos and captions.                                                                                                                                                                 |
-| `offscreen`          | Remux HLS streams to MP4.                                                                                                                                                                 |
-| `storage`            | Keep the list of detected videos while the service worker is suspended.                                                                                                                   |
-| `webRequest`         | Detect players by observing their `playManifest` requests. Read-only.                                                                                                                     |
+| Permission           | Why                                                                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `*://*/*` (optional) | Read the player inside iframes whose domain is not known in advance, which `activeTab` does not cover. Requested from the popup on first use; can be revoked from Chrome's settings. |
+| `scripting`          | Run the detection script in the current tab when the icon is clicked.                                                                                                                |
+| `downloads`          | Save videos and remove the finished downloads from the history.                                                                                                                      |
 
-No host access is requested at install time.
+No host access is requested at install time, and nothing runs on a page until the
+Kalgrab icon is clicked.
 
 ## Install
 
