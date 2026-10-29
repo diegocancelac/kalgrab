@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import {
   KalturaApiError,
   buildPlaybackContextRequest,
-  buildProgressiveUrl,
+  flavorUrl,
+  withKs,
   parsePlaybackContext,
 } from '../lib/kaltura/playback-context';
 
@@ -479,39 +480,18 @@ describe('captions', () => {
   });
 });
 
-describe('buildProgressiveUrl', () => {
+describe('flavorUrl', () => {
   const source = parsePlaybackContext(fixture).progressive;
   if (!source) throw new Error('the sample has no progressive source');
 
-  it('requests a single flavor and carries the ks as a /ks/<value> path segment', () => {
-    expect(buildProgressiveUrl(source, '1_flav0720', FAKE_KS)).toBe(
-      `https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/ks/${FAKE_KS}/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4`,
+  it('narrows the flavorIds list to one flavor and changes nothing else', () => {
+    expect(flavorUrl(source, '1_flav0720')).toBe(
+      'https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4',
     );
   });
 
-  it('only changes the flavor and the ks', () => {
-    const url = new URL(buildProgressiveUrl(source, '1_flav0360', FAKE_KS));
-    const original = new URL(source.url);
-    const strip = (u: URL) =>
-      u.pathname.replace(/\/ks\/[^/]+/, '').replace(/flavorIds\/[^/]+/, 'flavorIds/-');
-    expect(strip(url)).toBe(strip(original));
-    expect(url.origin).toBe(original.origin);
-  });
-
-  it('keeps the padding of the ks readable and escapes characters that would break the path', () => {
-    const url = buildProgressiveUrl(source, '1_flav0360', 'ab=/c d');
-    expect(url).toContain('/ks/ab=%2Fc%20d/flavorIds/');
-  });
-
-  it('does not leave the ks in the source it was given', () => {
-    buildProgressiveUrl(source, '1_flav0720', FAKE_KS);
-    expect(JSON.stringify(source)).not.toContain(FAKE_KS);
-  });
-
-  it('rejects a flavor the source does not serve, without echoing the ks', () => {
-    const attempt = () => buildProgressiveUrl(source, '1_other', FAKE_KS);
-    expect(attempt).toThrow(/1_other/);
-    expect(attempt).not.toThrow(FAKE_KS);
+  it('rejects a flavor the source does not serve', () => {
+    expect(() => flavorUrl(source, '1_other')).toThrow(/1_other/);
   });
 
   it('rejects a source URL without a flavorIds segment', () => {
@@ -519,10 +499,128 @@ describe('buildProgressiveUrl', () => {
       url: 'https://cdnapisec.kaltura.com/p/1/playManifest/entryId/x',
       flavorIds: ['1_a'],
     };
-    expect(() => buildProgressiveUrl(bad, '1_a', FAKE_KS)).toThrow(/flavorIds/);
+    expect(() => flavorUrl(bad, '1_a')).toThrow(/flavorIds/);
+  });
+});
+
+describe('withKs', () => {
+  const HOST = 'https://cdnapisec.kaltura.com/p/1234567/sp/1234567';
+
+  // After "playManifest" the path is key/value pairs plus an optional lone file name.
+  function pairsOf(url: string): [string, string][] {
+    const parts = new URL(url).pathname.split('/');
+    const rest = parts.slice(parts.indexOf('playManifest') + 1);
+    if (rest.length % 2 === 1) rest.pop();
+    return Array.from({ length: rest.length / 2 }, (_, i) => [
+      rest[2 * i] ?? '',
+      rest[2 * i + 1] ?? '',
+    ]);
+  }
+
+  describe('playManifest URLs', () => {
+    it('inserts ks/<value> before the file name of an HLS URL', () => {
+      expect(
+        withKs(
+          `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480/a.m3u8`,
+          FAKE_KS,
+        ),
+      ).toBe(
+        `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0360,1_flav0480/ks/${FAKE_KS}/a.m3u8`,
+      );
+    });
+
+    it('keeps name/a.mp4 as the last pair of a progressive URL', () => {
+      const url = `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4`;
+      expect(withKs(url, FAKE_KS)).toBe(
+        `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/ks/${FAKE_KS}/name/a.mp4`,
+      );
+    });
+
+    it('keeps every key/value pair aligned, with and without a file name', () => {
+      const urls = [
+        `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_a/a.m3u8`,
+        `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_a/format/applehttp/a.m3u8`,
+        `${HOST}/playManifest/entryId/1_abcd1234/flavorIds/1_a/name/a.mp4`,
+        `${HOST}/playManifest/entryId/1_abcd1234`,
+      ];
+      for (const url of urls) {
+        const before = pairsOf(url);
+        const after = pairsOf(withKs(url, FAKE_KS));
+        expect(after).toHaveLength(before.length + 1);
+        expect(after.filter(([key]) => key === 'ks')).toEqual([['ks', FAKE_KS]]);
+        expect(after.filter(([key]) => key !== 'ks')).toEqual(before);
+        expect(withKs(url, FAKE_KS).endsWith(url.split('/').slice(-1)[0] ?? '')).toBe(true);
+      }
+    });
+
+    it('works on the URLs of the sample response, one flavor at a time', () => {
+      const { progressive, hls } = parsePlaybackContext(fixture);
+      if (!progressive || !hls) throw new Error('the sample has no sources');
+      const mp4 = withKs(flavorUrl(progressive, '1_flav0360'), FAKE_KS);
+      expect(mp4).toContain(
+        `/flavorIds/1_flav0360/deliveryProfileId/9001/protocol/https/format/url/ks/${FAKE_KS}/name/a.mp4`,
+      );
+      expect(withKs(hls.url, FAKE_KS)).toContain(`/format/applehttp/ks/${FAKE_KS}/a.m3u8`);
+    });
+
+    it('keeps "=" padding readable and escapes what would break the path', () => {
+      const url = withKs(`${HOST}/playManifest/entryId/x/flavorIds/1_a/a.m3u8`, 'ab=/c d');
+      expect(url).toContain('/ks/ab=%2Fc%20d/a.m3u8');
+    });
+
+    it('rejects a playManifest URL without parameters', () => {
+      expect(() => withKs(`${HOST}/playManifest`, FAKE_KS)).toThrow(/no parameters/);
+    });
   });
 
-  it('requires a ks', () => {
-    expect(() => buildProgressiveUrl(source, '1_flav0720', '')).toThrow(/ks/);
+  describe('api_v3 URLs', () => {
+    const CAPTION =
+      'https://cdnapisec.kaltura.com/api_v3/index.php/service/caption_captionasset/action/serveWebVTT/captionAssetId/1_cap00001/segmentIndex/-1';
+
+    it('adds ?ks= when there is no query', () => {
+      expect(withKs(CAPTION, FAKE_KS)).toBe(`${CAPTION}?ks=${encodeURIComponent(FAKE_KS)}`);
+    });
+
+    it('appends &ks= after an existing query, which stays byte for byte', () => {
+      const url = `${CAPTION}?a=b%20c&d=e`;
+      expect(withKs(url, FAKE_KS)).toBe(`${url}&ks=${encodeURIComponent(FAKE_KS)}`);
+    });
+
+    it('replaces a ks that the URL already has', () => {
+      const result = new URL(withKs(`${CAPTION}?ks=old&a=b`, FAKE_KS));
+      expect(result.searchParams.getAll('ks')).toEqual([FAKE_KS]);
+      expect(result.searchParams.get('a')).toBe('b');
+    });
+
+    it('also matches a bare /api_v3 path', () => {
+      expect(withKs('https://cdnapisec.kaltura.com/api_v3', 'k')).toContain('?ks=k');
+    });
+  });
+
+  describe('rejections', () => {
+    it('refuses URLs it does not know how to place a ks in', () => {
+      expect(() => withKs('https://example.com/video.mp4', FAKE_KS)).toThrow(/unknown kind/);
+      expect(() =>
+        withKs('https://cdnapisec.kaltura.com/p/1/thumbnail/entry_id/x', FAKE_KS),
+      ).toThrow();
+    });
+
+    it('refuses invalid or non-http(s) URLs and a missing ks', () => {
+      expect(() => withKs('not a url', FAKE_KS)).toThrow(/valid URL/);
+      expect(() => withKs('javascript:alert(1)', FAKE_KS)).toThrow(/http/);
+      expect(() => withKs(`${'https://x.example.com/api_v3'}`, '')).toThrow(/ks is required/);
+    });
+
+    it('never puts the ks in an error message', () => {
+      for (const url of [
+        'https://example.com/video.mp4',
+        'not a url',
+        'ftp://x.example.com/api_v3',
+      ]) {
+        const attempt = () => withKs(url, FAKE_KS);
+        expect(attempt).toThrow();
+        expect(attempt).not.toThrow(FAKE_KS);
+      }
+    });
   });
 });

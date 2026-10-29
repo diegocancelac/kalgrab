@@ -1,5 +1,5 @@
 // Kaltura playback context: request building and response parsing. Pure: the caller does the
-// fetch. Only buildPlaybackContextRequest and buildProgressiveUrl ever see the ks; whatever
+// fetch. Only buildPlaybackContextRequest and withKs ever see the ks; whatever
 // parsePlaybackContext returns is ks-free.
 
 export interface PlaybackContextRequestInput {
@@ -281,27 +281,63 @@ export function parsePlaybackContext(json: unknown): VideoInfo {
   return info;
 }
 
-/**
- * Download URL of a single flavor of a progressive source. This is the only place that
- * puts the ks in a URL: it goes in the path as Kaltura's own playManifest URLs carry it
- * ("/ks/<value>"). The result must never be logged or stored; the downloads API call that
- * uses it should erase it from the browser history afterwards.
- */
-export function buildProgressiveUrl(source: VideoSource, flavorId: string, ks: string): string {
-  if (!ks) throw new Error('A ks is required.');
+/** The source URL narrowed to one flavor. Still ks-free. */
+export function flavorUrl(source: VideoSource, flavorId: string): string {
   if (!source.flavorIds.includes(flavorId)) {
     throw new Error(`Flavor ${flavorId} is not served by this source.`);
   }
-
   const url = new URL(source.url);
   const parts = url.pathname.split('/');
   const at = parts.indexOf('flavorIds');
   if (at < 0 || at + 1 >= parts.length) {
     throw new Error('The source URL has no flavorIds segment.');
   }
-  // "=" is ks padding and is valid in a path; everything else unsafe gets escaped.
-  const ksSegment = encodeURIComponent(ks).replace(/%3D/g, '=');
-  parts.splice(at, 2, 'ks', ksSegment, 'flavorIds', flavorId);
+  parts[at + 1] = flavorId;
   url.pathname = parts.join('/');
   return url.href;
+}
+
+/**
+ * Adds the ks to a Kaltura URL. This is the only place that puts it in one, so the result
+ * must never be logged or stored; erase it from the downloads history once it is used.
+ *
+ * - playManifest URLs take it as a "/ks/<value>" path pair. After "playManifest" the path is
+ *   key/value pairs, optionally ending in a lone file name (".../flavorIds/<ids>/a.m3u8").
+ *   The pair goes before that file name, or before the last pair when the path ends in one
+ *   (".../name/a.mp4"), so the pairs stay aligned.
+ * - api_v3 endpoints (captions) take it as a "ks" query parameter.
+ * - Anything else is rejected rather than getting a session it was not meant for.
+ */
+export function withKs(url: string, ks: string): string {
+  if (!ks) throw new Error('A ks is required.');
+  let target: URL;
+  try {
+    target = new URL(url);
+  } catch {
+    throw new Error('Cannot add the ks: not a valid URL.');
+  }
+  if (target.protocol !== 'https:' && target.protocol !== 'http:') {
+    throw new Error('Cannot add the ks: not an http(s) URL.');
+  }
+
+  const parts = target.pathname.split('/');
+  const manifest = parts.indexOf('playManifest');
+  if (manifest >= 0) {
+    const rest = parts.length - manifest - 1;
+    if (rest < 1) throw new Error('Cannot add the ks: the playManifest URL has no parameters.');
+    // "=" is ks padding and is valid in a path; everything else unsafe gets escaped.
+    const value = encodeURIComponent(ks).replace(/%3D/g, '=');
+    parts.splice(rest % 2 === 1 ? parts.length - 1 : parts.length - 2, 0, 'ks', value);
+    target.pathname = parts.join('/');
+  } else if (/\/api_v3(\/|$)/.test(target.pathname)) {
+    if (target.searchParams.has('ks')) {
+      target.searchParams.set('ks', ks);
+    } else {
+      const param = `ks=${encodeURIComponent(ks)}`;
+      target.search = target.search ? `${target.search}&${param}` : `?${param}`;
+    }
+  } else {
+    throw new Error('Cannot add the ks: unknown kind of Kaltura URL.');
+  }
+  return target.href;
 }
