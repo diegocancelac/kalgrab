@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   KalturaApiError,
   buildPlaybackContextRequest,
+  buildProgressiveUrl,
   parsePlaybackContext,
 } from '../lib/kaltura/playback-context';
 
@@ -482,5 +483,53 @@ describe('captions', () => {
       }),
     );
     expect(info.captions).toEqual([]);
+  });
+});
+
+describe('buildProgressiveUrl', () => {
+  const source = parsePlaybackContext(fixture).progressive;
+  if (!source) throw new Error('the sample has no progressive source');
+
+  it('requests a single flavor and carries the ks as a /ks/<value> path segment', () => {
+    expect(buildProgressiveUrl(source, '1_flav0720', FAKE_KS)).toBe(
+      `https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/ks/${FAKE_KS}/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4`,
+    );
+  });
+
+  it('only changes the flavor and the ks', () => {
+    const url = new URL(buildProgressiveUrl(source, '1_flav0360', FAKE_KS));
+    const original = new URL(source.url);
+    const strip = (u: URL) =>
+      u.pathname.replace(/\/ks\/[^/]+/, '').replace(/flavorIds\/[^/]+/, 'flavorIds/-');
+    expect(strip(url)).toBe(strip(original));
+    expect(url.origin).toBe(original.origin);
+  });
+
+  it('keeps the padding of the ks readable and escapes characters that would break the path', () => {
+    const url = buildProgressiveUrl(source, '1_flav0360', 'ab=/c d');
+    expect(url).toContain('/ks/ab=%2Fc%20d/flavorIds/');
+  });
+
+  it('does not leave the ks in the source it was given', () => {
+    buildProgressiveUrl(source, '1_flav0720', FAKE_KS);
+    expect(JSON.stringify(source)).not.toContain(FAKE_KS);
+  });
+
+  it('rejects a flavor the source does not serve, without echoing the ks', () => {
+    const attempt = () => buildProgressiveUrl(source, '1_other', FAKE_KS);
+    expect(attempt).toThrow(/1_other/);
+    expect(attempt).not.toThrow(FAKE_KS);
+  });
+
+  it('rejects a source URL without a flavorIds segment', () => {
+    const bad = {
+      url: 'https://cdnapisec.kaltura.com/p/1/playManifest/entryId/x',
+      flavorIds: ['1_a'],
+    };
+    expect(() => buildProgressiveUrl(bad, '1_a', FAKE_KS)).toThrow(/flavorIds/);
+  });
+
+  it('requires a ks', () => {
+    expect(() => buildProgressiveUrl(source, '1_flav0720', '')).toThrow(/ks/);
   });
 });

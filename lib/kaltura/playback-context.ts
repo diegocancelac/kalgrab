@@ -276,3 +276,28 @@ export function parsePlaybackContext(json: unknown): VideoInfo {
   }
   return info;
 }
+
+/**
+ * Download URL of a single flavor of a progressive source. This is the only place that
+ * puts the ks in a URL: it goes in the path as Kaltura's own playManifest URLs carry it
+ * ("/ks/<value>"). The result must never be logged or stored; the downloads API call that
+ * uses it should erase it from the browser history afterwards.
+ */
+export function buildProgressiveUrl(source: VideoSource, flavorId: string, ks: string): string {
+  if (!ks) throw new Error('A ks is required.');
+  if (!source.flavorIds.includes(flavorId)) {
+    throw new Error(`Flavor ${flavorId} is not served by this source.`);
+  }
+
+  const url = new URL(source.url);
+  const parts = url.pathname.split('/');
+  const at = parts.indexOf('flavorIds');
+  if (at < 0 || at + 1 >= parts.length) {
+    throw new Error('The source URL has no flavorIds segment.');
+  }
+  // "=" is ks padding and is valid in a path; everything else unsafe gets escaped.
+  const ksSegment = encodeURIComponent(ks).replace(/%3D/g, '=');
+  parts.splice(at, 2, 'ks', ksSegment, 'flavorIds', flavorId);
+  url.pathname = parts.join('/');
+  return url.href;
+}
