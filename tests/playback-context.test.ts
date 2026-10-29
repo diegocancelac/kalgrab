@@ -43,6 +43,31 @@ describe('buildPlaybackContextRequest', () => {
     expect(url).toBe('https://kaltura.example.edu/proxy/api_v3/service/multirequest');
   });
 
+  it('does not repeat /api_v3 when serviceUrl already ends in it', () => {
+    for (const serviceUrl of [
+      'https://www.kaltura.com/api_v3',
+      'https://www.kaltura.com/api_v3/',
+      'https://www.kaltura.com/api_v3//',
+    ]) {
+      expect(buildPlaybackContextRequest({ ...input, serviceUrl }).url, serviceUrl).toBe(
+        'https://www.kaltura.com/api_v3/service/multirequest',
+      );
+    }
+    const { url } = buildPlaybackContextRequest({
+      ...input,
+      serviceUrl: 'https://kaltura.example.edu/proxy/api_v3/',
+    });
+    expect(url).toBe('https://kaltura.example.edu/proxy/api_v3/service/multirequest');
+  });
+
+  it('only strips a whole /api_v3 segment', () => {
+    const { url } = buildPlaybackContextRequest({
+      ...input,
+      serviceUrl: 'https://kaltura.example.edu/my_api_v3',
+    });
+    expect(url).toBe('https://kaltura.example.edu/my_api_v3/api_v3/service/multirequest');
+  });
+
   it('asks for baseEntry.list and then getPlaybackContext with all flavors', () => {
     const body = JSON.parse(buildPlaybackContextRequest(input).body);
     expect(body['1']).toMatchObject({
