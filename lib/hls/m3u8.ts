@@ -20,6 +20,20 @@ export interface Variant {
   codecs?: string;
   /** Group id of the alternative audio renditions, when the audio is not muxed in. */
   audio?: string;
+  /** The AUDIO renditions of that group; empty if the master never declares it. */
+  audioRenditions?: Rendition[];
+}
+
+/** An EXT-X-MEDIA entry: an alternative audio, video or subtitle track. */
+export interface Rendition {
+  type: 'AUDIO' | 'VIDEO' | 'SUBTITLES' | 'CLOSED-CAPTIONS';
+  groupId: string;
+  name: string;
+  language?: string;
+  default: boolean;
+  autoselect: boolean;
+  /** Absent when the track is muxed into the variant streams. */
+  url?: string;
 }
 
 export interface Segment {
@@ -30,6 +44,7 @@ export interface Segment {
 export interface MasterPlaylist {
   kind: 'master';
   variants: Variant[];
+  renditions: Rendition[];
   isProtected: boolean;
 }
 
@@ -48,6 +63,7 @@ type Entry = { type: 'tag'; name: string; value: string } | { type: 'uri'; value
 const ATTRIBUTE = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/g;
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const RESOLUTION = /^(\d+)x(\d+)$/;
+const RENDITION_TYPES = new Set(['AUDIO', 'VIDEO', 'SUBTITLES', 'CLOSED-CAPTIONS']);
 
 /** Parses an attribute list such as `BANDWIDTH=1,CODECS="a,b"`. Quotes are stripped from values. */
 export function parseAttributes(list: string): Record<string, string> {
@@ -101,13 +117,45 @@ function hasEncryption(entries: Entry[]): boolean {
   );
 }
 
+// EXT-X-MEDIA entries missing TYPE, GROUP-ID or NAME, or with an unknown TYPE, are skipped.
+function parseRendition(value: string, baseUrl: string): Rendition | null {
+  const attributes = parseAttributes(value);
+  const type = attributes['TYPE'];
+  const groupId = attributes['GROUP-ID'];
+  const name = attributes['NAME'];
+  if (
+    type === undefined ||
+    !RENDITION_TYPES.has(type) ||
+    groupId === undefined ||
+    name === undefined
+  ) {
+    return null;
+  }
+
+  const rendition: Rendition = {
+    type: type as Rendition['type'],
+    groupId,
+    name,
+    default: attributes['DEFAULT'] === 'YES',
+    autoselect: attributes['AUTOSELECT'] === 'YES',
+  };
+  if (attributes['LANGUAGE'] !== undefined) rendition.language = attributes['LANGUAGE'];
+  if (attributes['URI']) rendition.url = resolveUri(attributes['URI'], baseUrl);
+  return rendition;
+}
+
 function parseMaster(entries: Entry[], baseUrl: string, isProtected: boolean): MasterPlaylist {
   const variants: Variant[] = [];
+  const renditions: Rendition[] = [];
   let pending: Record<string, string> | null = null;
 
   for (const entry of entries) {
     if (entry.type === 'tag') {
       if (entry.name === 'EXT-X-STREAM-INF') pending = parseAttributes(entry.value);
+      if (entry.name === 'EXT-X-MEDIA') {
+        const rendition = parseRendition(entry.value, baseUrl);
+        if (rendition) renditions.push(rendition);
+      }
       continue;
     }
     if (!pending) continue;
@@ -129,10 +177,17 @@ function parseMaster(entries: Entry[], baseUrl: string, isProtected: boolean): M
     pending = null;
   }
 
+  for (const variant of variants) {
+    if (variant.audio === undefined) continue;
+    variant.audioRenditions = renditions.filter(
+      (r) => r.type === 'AUDIO' && r.groupId === variant.audio,
+    );
+  }
+
   if (!isProtected && !variants.length) {
     throw new M3u8Error('invalid', 'The master playlist has no usable variants.');
   }
-  return { kind: 'master', variants, isProtected };
+  return { kind: 'master', variants, renditions, isProtected };
 }
 
 function parseMedia(entries: Entry[], baseUrl: string, isProtected: boolean): MediaPlaylist {

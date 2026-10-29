@@ -86,6 +86,7 @@ describe('master playlist', () => {
         frameRate: 29.97,
         codecs: 'avc1.64001f,mp4a.40.2',
         audio: 'aud1',
+        audioRenditions: [],
       },
     ]);
   });
@@ -139,6 +140,91 @@ describe('master playlist', () => {
     expect(errorCode(() => parsePlaylist('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n', BASE))).toBe(
       'invalid',
     );
+  });
+
+  describe('renditions', () => {
+    const text = [
+      '#EXTM3U',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="en",DEFAULT=YES,AUTOSELECT=YES,URI="audio/en.m3u8?token=a=b"',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="Español",LANGUAGE="es",DEFAULT=NO,AUTOSELECT=YES,URI="https://audio.example.org/es.m3u8"',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="other",NAME="Commentary",URI="audio/commentary.m3u8"',
+      '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="aud",NAME="English subtitles",LANGUAGE="en",URI="subs/en.m3u8"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aud"',
+      'v720.m3u8',
+      '#EXT-X-STREAM-INF:BANDWIDTH=400000,AUDIO="missing"',
+      'v360.m3u8',
+      '#EXT-X-STREAM-INF:BANDWIDTH=200000',
+      'v180.m3u8',
+    ].join('\n');
+
+    it('exposes every rendition with its resolved URI', () => {
+      expect(master(text).renditions).toEqual([
+        {
+          type: 'AUDIO',
+          groupId: 'aud',
+          name: 'English',
+          language: 'en',
+          default: true,
+          autoselect: true,
+          url: 'https://cdn.example.com/hls/entry/audio/en.m3u8?token=a=b',
+        },
+        {
+          type: 'AUDIO',
+          groupId: 'aud',
+          name: 'Español',
+          language: 'es',
+          default: false,
+          autoselect: true,
+          url: 'https://audio.example.org/es.m3u8',
+        },
+        {
+          type: 'AUDIO',
+          groupId: 'other',
+          name: 'Commentary',
+          default: false,
+          autoselect: false,
+          url: 'https://cdn.example.com/hls/entry/audio/commentary.m3u8',
+        },
+        {
+          type: 'SUBTITLES',
+          groupId: 'aud',
+          name: 'English subtitles',
+          language: 'en',
+          default: false,
+          autoselect: false,
+          url: 'https://cdn.example.com/hls/entry/subs/en.m3u8',
+        },
+      ]);
+    });
+
+    it('links a variant to the AUDIO renditions of its group only', () => {
+      const [withAudio, unknownGroup, muxed] = master(text).variants;
+      expect(withAudio?.audioRenditions?.map((r) => r.name)).toEqual(['English', 'Español']);
+      expect(unknownGroup?.audioRenditions).toEqual([]);
+      expect(muxed?.audioRenditions).toBeUndefined();
+    });
+
+    it('does not require a URI (audio muxed into the variants)', () => {
+      const playlist = master(
+        '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="Main"\n#EXT-X-STREAM-INF:BANDWIDTH=1\nlow.m3u8',
+      );
+      expect(playlist.renditions[0]?.url).toBeUndefined();
+    });
+
+    it('skips entries missing TYPE, GROUP-ID or NAME, or with an unknown TYPE', () => {
+      const playlist = master(
+        [
+          '#EXTM3U',
+          '#EXT-X-MEDIA:GROUP-ID="a",NAME="x"',
+          '#EXT-X-MEDIA:TYPE=AUDIO,NAME="x"',
+          '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a"',
+          '#EXT-X-MEDIA:TYPE=HOLOGRAM,GROUP-ID="a",NAME="x"',
+          '#EXT-X-STREAM-INF:BANDWIDTH=1',
+          'low.m3u8',
+        ].join('\n'),
+      );
+      expect(playlist.renditions).toEqual([]);
+    });
   });
 
   it('is protected with a SESSION-KEY other than NONE', () => {
