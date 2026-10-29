@@ -8,6 +8,8 @@ import {
   VERSION,
   isFetchFailedMessage,
   isMainMessage,
+  isSessionsMessage,
+  isVideoInfo,
   isVideosMessage,
 } from '../lib/messages';
 import { parsePlaybackContext } from '../lib/kaltura/playback-context';
@@ -551,5 +553,79 @@ describe('a ks smuggled into a listing', () => {
     expect(isFetchFailedMessage(fetchFailed(`https://cdnapisec.kaltura.com/ks/${FAKE_KS}`))).toBe(
       false,
     );
+  });
+});
+
+describe('sessions', () => {
+  const session = {
+    partnerId: 1234567,
+    serviceUrl: 'https://www.kaltura.com/api_v3',
+    allowedOrigins: ['https://www.kaltura.com/api_v3', 'https://cdnapisec.kaltura.com'],
+    ks: FAKE_KS,
+    entryId: '1_abcd1234',
+  };
+  const sessions = (edit?: (s: Json, m: Json) => void): Json => {
+    const message: Json = {
+      channel: CHANNEL,
+      version: VERSION,
+      type: 'sessions',
+      pageUrl: 'https://kaf.example.edu/browseandembed/index/media/entryid/1_abcd1234',
+      sessions: [structuredClone(session)],
+    };
+    edit?.(message['sessions'][0], message);
+    return message;
+  };
+
+  it('accepts sessions that carry a ks, unlike a listing', () => {
+    expect(isSessionsMessage(sessions())).toBe(true);
+    expect(isMainMessage(sessions())).toBe(true);
+    expect(isSessionsMessage(sessions((s) => (s['ks'] = FAKE_V2_KS)))).toBe(true);
+    expect(isSessionsMessage(sessions((s) => (s['allowedOrigins'] = [session.serviceUrl])))).toBe(
+      true,
+    );
+  });
+
+  it('accepts a page URL whatever its query holds', () => {
+    const pageUrl = `https://kaf.example.edu/lti?ks=${FAKE_KS}&x=1`;
+    expect(isSessionsMessage(sessions((_s, m) => (m['pageUrl'] = pageUrl)))).toBe(true);
+  });
+
+  it('rejects malformed sessions', () => {
+    const broken: [string, (s: Json, m: Json) => void][] = [
+      ['no sessions', (_s, m) => (m['sessions'] = [])],
+      ['too many sessions', (_s, m) => (m['sessions'] = Array(LIMITS.sessions + 1).fill(session))],
+      ['extra field in the message', (_s, m) => (m['extra'] = 1)],
+      ['extra field in a session', (s) => (s['uiConfId'] = 1)],
+      ['missing ks', (s) => delete s['ks']],
+      ['empty ks', (s) => (s['ks'] = '')],
+      ['ks with spaces', (s) => (s['ks'] = 'a b')],
+      ['ks too long', (s) => (s['ks'] = 'a'.repeat(LIMITS.ks + 1))],
+      ['partnerId a string', (s) => (s['partnerId'] = '1234567')],
+      ['partnerId zero', (s) => (s['partnerId'] = 0)],
+      ['serviceUrl not http(s)', (s) => (s['serviceUrl'] = 'javascript:alert(1)')],
+      ['no allowed origins', (s) => (s['allowedOrigins'] = [])],
+      ['three allowed origins', (s) => s['allowedOrigins'].push('https://a.example.com')],
+      ['allowed origin not http(s)', (s) => (s['allowedOrigins'] = ['file:///x'])],
+      ['entryId with a slash', (s) => (s['entryId'] = '1_a/b')],
+      ['pageUrl not http(s)', (_s, m) => (m['pageUrl'] = 'about:srcdoc')],
+      ['pageUrl with credentials', (_s, m) => (m['pageUrl'] = 'https://u:p@kaf.example.edu/')],
+      [
+        'pageUrl too long',
+        (_s, m) => (m['pageUrl'] = `https://a.example.com/${'a'.repeat(LIMITS.url)}`),
+      ],
+      ['wrong version', (_s, m) => (m['version'] = VERSION + 1)],
+    ];
+    for (const [name, edit] of broken) {
+      expect(isSessionsMessage(sessions(edit)), name).toBe(false);
+    }
+  });
+});
+
+describe('isVideoInfo', () => {
+  it('holds a single video to the rules of a listing', () => {
+    const video = videosMessage()['videos'][0];
+    expect(isVideoInfo(video)).toBe(true);
+    expect(isVideoInfo({ ...video, title: `x ${FAKE_V2_KS}` })).toBe(false);
+    expect(isVideoInfo({ ...video, isProtected: true })).toBe(false);
   });
 });
