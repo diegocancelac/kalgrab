@@ -307,6 +307,18 @@ export function flavorUrl(source: VideoSource, flavorId: string): string {
   return url.href;
 }
 
+/**
+ * Adds the page as a base64 "referrer" parameter, as the player does for playManifest
+ * requests. Access control can limit a video to some domains, and a download started by the
+ * extension sends no Referer header. Call it before withKs.
+ */
+export function withReferrer(url: string, pageUrl: string): string {
+  const target = new URL(url);
+  // URL serialization percent-encodes anything outside ASCII, which btoa needs.
+  target.searchParams.set('referrer', btoa(new URL(pageUrl).href));
+  return target.href;
+}
+
 // Accepts origins or full URLs (serviceUrl may carry a path); entries that are not http(s) URLs
 // are ignored, so a bad config entry can only shrink the list.
 function originsOf(urls: readonly string[]): Set<string> {

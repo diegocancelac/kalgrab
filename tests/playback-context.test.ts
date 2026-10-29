@@ -7,6 +7,7 @@ import {
   buildPlaybackContextRequest,
   flavorUrl,
   withKs,
+  withReferrer,
   parsePlaybackContext,
 } from '../lib/kaltura/playback-context';
 
@@ -566,6 +567,53 @@ describe('flavorUrl', () => {
       flavorIds: ['1_a'],
     };
     expect(() => flavorUrl(bad, '1_a')).toThrow(/flavorIds/);
+  });
+});
+
+describe('withReferrer', () => {
+  const FLAVOR =
+    'https://cdnapisec.kaltura.com/p/1234567/sp/1234567/playManifest/entryId/1_abcd1234/flavorIds/1_flav0720/deliveryProfileId/9001/protocol/https/format/url/name/a.mp4';
+  const PAGE = 'https://kaf.example.edu/browseandembed/index/media/entryid/1_abcd1234?a=1&b=2';
+  const referrerOf = (url: string) => new URL(url).searchParams.get('referrer');
+
+  it('adds the page URL as base64 in a query parameter and leaves the path alone', () => {
+    const url = withReferrer(FLAVOR, PAGE);
+    expect(url.startsWith(`${FLAVOR}?referrer=`)).toBe(true);
+    expect(atob(referrerOf(url) ?? '')).toBe(PAGE);
+  });
+
+  it('percent-encodes the base64 characters that are special in a query', () => {
+    // Their base64 forms contain "+" and "/", and "+" and "=".
+    for (const page of ['https://kaf.example.edu/?~~~~?', 'https://kaf.example.edu/a~~?']) {
+      const url = withReferrer(FLAVOR, page);
+      const raw = new URL(url).search.slice('?referrer='.length);
+      expect(btoa(page)).toMatch(/[+/=]/);
+      expect(raw, page).not.toMatch(/[+/=]/);
+      expect(atob(referrerOf(url) ?? ''), page).toBe(page);
+    }
+  });
+
+  it('keeps the other parameters and replaces a referrer already there', () => {
+    const url = withReferrer(`${FLAVOR}?clientTag=html5&referrer=b2xk`, PAGE);
+    const params = new URL(url).searchParams;
+    expect(params.get('clientTag')).toBe('html5');
+    expect(params.getAll('referrer')).toEqual([btoa(PAGE)]);
+  });
+
+  it('encodes page URLs with non-ASCII characters', () => {
+    const url = withReferrer(FLAVOR, 'https://kaf.example.edu/curso/introducción');
+    expect(atob(referrerOf(url) ?? '')).toBe('https://kaf.example.edu/curso/introducci%C3%B3n');
+  });
+
+  it('keeps the session where withKs puts it when applied first', () => {
+    const url = withKs(withReferrer(FLAVOR, PAGE), FAKE_KS, ['https://cdnapisec.kaltura.com']);
+    expect(new URL(url).pathname).toContain(`/format/url/ks/${FAKE_KS}/name/a.mp4`);
+    expect(atob(referrerOf(url) ?? '')).toBe(PAGE);
+  });
+
+  it('rejects an invalid URL or page URL', () => {
+    expect(() => withReferrer('not a url', PAGE)).toThrow();
+    expect(() => withReferrer(FLAVOR, 'not a url')).toThrow();
   });
 });
 
