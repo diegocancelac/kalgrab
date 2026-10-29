@@ -7,6 +7,7 @@ import {
 } from '@/lib/download/progressive';
 import {
   readPopupRequest,
+  respond,
   type DownloadRequest,
   type DownloadResponse,
   type ScanResponse,
@@ -91,17 +92,13 @@ export default defineBackground(() => {
     }
   });
 
-  browser.runtime.onMessage.addListener((value, sender, sendResponse) => {
-    const request = readPopupRequest(value, sender, browser.runtime.id);
-    if (request?.type === 'scan') {
-      scan(request.tabId).then(sendResponse, () =>
-        sendResponse({ ok: false, error: 'The scan failed.' } satisfies ScanResponse),
-      );
-      return true;
-    }
-    if (request?.type === 'download') {
-      download(request).then(sendResponse, () => sendResponse(fail('The download failed.')));
-      return true;
-    }
-  });
+  // Every message gets an answer, a refused one included.
+  browser.runtime.onMessage.addListener((value, sender, sendResponse) =>
+    respond(async () => {
+      const read = readPopupRequest(value, sender, browser.runtime.id);
+      if (!read.ok) return read;
+      const { request } = read;
+      return request.type === 'scan' ? scan(request.tabId) : download(request);
+    }, sendResponse),
+  );
 });
