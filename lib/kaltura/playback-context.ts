@@ -10,12 +10,14 @@ export interface PlaybackContextRequestInput {
 }
 
 /**
- * The multirequest the player sends: baseEntry.list resolves the entry (following
- * redirects), and getPlaybackContext asks for every flavor ("all") of the entry it found.
+ * The multirequest the player sends, as a JSON POST: baseEntry.list resolves the entry
+ * (following redirects), and getPlaybackContext asks for every flavor ("all") of the entry
+ * it found. The ks goes at the top level and in each request, like the player does.
  * The result is a two-element array, in that order.
  */
 export function buildPlaybackContextRequest(input: PlaybackContextRequestInput): {
   url: string;
+  headers: Record<string, string>;
   body: string;
 } {
   let base: URL;
@@ -38,16 +40,22 @@ export function buildPlaybackContextRequest(input: PlaybackContextRequestInput):
     '1': {
       service: 'baseEntry',
       action: 'list',
+      ks: input.ks,
       filter: { redirectFromEntryId: input.entryId },
     },
     '2': {
       service: 'baseEntry',
       action: 'getPlaybackContext',
+      ks: input.ks,
       entryId: '{1:result:objects:0:id}',
       contextDataParams: { objectType: 'KalturaContextDataParams', flavorTags: 'all' },
     },
   };
-  return { url, body: JSON.stringify(body) };
+  return {
+    url,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
 }
 
 /** A KalturaAPIException from the server. `message` is safe to show: it never carries a ks. */

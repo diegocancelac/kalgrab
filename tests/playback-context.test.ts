@@ -44,12 +44,12 @@ describe('buildPlaybackContextRequest', () => {
 
   it('asks for baseEntry.list and then getPlaybackContext with all flavors', () => {
     const body = JSON.parse(buildPlaybackContextRequest(input).body);
-    expect(body['1']).toEqual({
+    expect(body['1']).toMatchObject({
       service: 'baseEntry',
       action: 'list',
       filter: { redirectFromEntryId: '1_abcd1234' },
     });
-    expect(body['2']).toEqual({
+    expect(body['2']).toMatchObject({
       service: 'baseEntry',
       action: 'getPlaybackContext',
       entryId: '{1:result:objects:0:id}',
@@ -57,13 +57,19 @@ describe('buildPlaybackContextRequest', () => {
     });
   });
 
-  it('sends the session once, at the top level', () => {
+  it('sends the session at the top level and in each request', () => {
     const body = JSON.parse(buildPlaybackContextRequest(input).body);
     expect(body.ks).toBe(FAKE_KS);
+    expect(body['1'].ks).toBe(FAKE_KS);
+    expect(body['2'].ks).toBe(FAKE_KS);
     expect(body.partnerId).toBe(1234567);
     expect(body.format).toBe(1);
-    expect(body['1'].ks).toBeUndefined();
-    expect(body['2'].ks).toBeUndefined();
+  });
+
+  it('is meant to be sent as application/json', () => {
+    expect(buildPlaybackContextRequest(input).headers).toEqual({
+      'Content-Type': 'application/json',
+    });
   });
 
   it('rejects a bad service URL, a missing ks or a missing entry id', () => {
