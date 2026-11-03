@@ -21,9 +21,23 @@ export interface DownloadRequest {
   flavorId: string;
 }
 
-export type DownloadResponse = { ok: true } | { ok: false; error: string };
+/** Downloads one caption track of a listed video as SRT. */
+export interface CaptionsRequest {
+  type: 'captions';
+  tabId: number;
+  documentId: string;
+  video: VideoInfo;
+  /** Index in video.captions. */
+  captionIndex: number;
+}
 
-export type PopupRequest = ScanRequest | DownloadRequest;
+/**
+ * The answer to a download or captions request. `cancelled`: the user closed the Save As
+ * dialog, which is not an error.
+ */
+export type DownloadResponse = { ok: true; cancelled?: true } | { ok: false; error: string };
+
+export type PopupRequest = ScanRequest | DownloadRequest | CaptionsRequest;
 
 export type PopupResponse = ScanResponse | DownloadResponse;
 
@@ -54,16 +68,25 @@ export function readPopupRequest(value: unknown, sender: Sender, extensionId: st
     if (!isId(request['tabId'])) return refuse('The scan request has no valid tab id.');
     return { ok: true, request: { type: 'scan', tabId: request['tabId'] } };
   }
-  if (request['type'] === 'download') {
-    const { tabId, documentId, video, flavorId } = request;
-    if (!isId(tabId)) return refuse('The download request has no valid tab id.');
-    if (!isToken(documentId, 128)) return refuse('The download request has no valid document id.');
-    // The video comes back from the popup as the scan listed it; it is checked again anyway.
-    if (!isVideoInfo(video)) return refuse('The download request has no valid video.');
+  if (request['type'] !== 'download' && request['type'] !== 'captions') {
+    return refuse('Unknown request.');
+  }
+  const kind = request['type'];
+  const { tabId, documentId, video } = request;
+  if (!isId(tabId)) return refuse(`The ${kind} request has no valid tab id.`);
+  if (!isToken(documentId, 128)) return refuse(`The ${kind} request has no valid document id.`);
+  // The video comes back from the popup as the scan listed it; it is checked again anyway.
+  if (!isVideoInfo(video)) return refuse(`The ${kind} request has no valid video.`);
+  if (kind === 'download') {
+    const { flavorId } = request;
     if (!isToken(flavorId, 64)) return refuse('The download request has no valid flavor id.');
     return { ok: true, request: { type: 'download', tabId, documentId, video, flavorId } };
   }
-  return refuse('Unknown request.');
+  const { captionIndex } = request;
+  if (!isId(captionIndex) || captionIndex >= video.captions.length) {
+    return refuse('The captions request has no valid caption track.');
+  }
+  return { ok: true, request: { type: 'captions', tabId, documentId, video, captionIndex } };
 }
 
 /**

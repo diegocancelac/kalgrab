@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toFilename } from '../lib/filename';
+import { toCaptionFilename, toFilename } from '../lib/filename';
 
 describe('toFilename', () => {
   it('keeps a plain title and appends the extension', () => {
@@ -161,5 +161,28 @@ describe('toFilename', () => {
   it('sanitizes the extension too', () => {
     expect(toFilename('clip', 'm p/4')).toBe('clip.mp4');
     expect(toFilename('clip', '')).toBe('clip');
+  });
+});
+
+describe('toCaptionFilename', () => {
+  it('puts the language between the title and .srt', () => {
+    expect(toCaptionFilename('Sample lecture', 'en')).toBe('Sample lecture.en.srt');
+    expect(toCaptionFilename('Sample lecture', 'pt-BR')).toBe('Sample lecture.pt-BR.srt');
+  });
+
+  it('reduces a label to letters and digits joined by dashes', () => {
+    expect(toCaptionFilename('Lecture', 'English (auto)')).toBe('Lecture.English-auto.srt');
+    expect(toCaptionFilename('Lecture', 'Español/../x')).toBe('Lecture.Español-x.srt');
+    expect(toCaptionFilename('Lecture', '  ')).toBe('Lecture.srt');
+  });
+
+  it('keeps the language when the title has to be cut', () => {
+    const name = toCaptionFilename('a'.repeat(300), 'es');
+    expect(name.endsWith('.es.srt')).toBe(true);
+    expect(new TextEncoder().encode(name).length).toBeLessThanOrEqual(200);
+  });
+
+  it('sanitizes the title as for videos', () => {
+    expect(toCaptionFilename('Week 1: intro?', 'en')).toBe('Week 1_ intro_.en.srt');
   });
 });

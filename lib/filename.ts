@@ -69,3 +69,14 @@ export function toFilename(title: string, extension: string): string {
   if (!ext) return sanitizeTitle(title, MAX_FILENAME_BYTES);
   return `${sanitizeTitle(title, MAX_FILENAME_BYTES - ext.length - 1)}.${ext}`;
 }
+
+/** "<title>.<language>.srt". The language keeps only letters and digits, joined by dashes. */
+export function toCaptionFilename(title: string, language: string): string {
+  const parts = language
+    .normalize('NFC')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  const tag = [...parts.join('-')].slice(0, 32).join('').replace(/-+$/, '');
+  const suffix = tag ? `${tag}.srt` : 'srt';
+  return `${sanitizeTitle(title, MAX_FILENAME_BYTES - byteLength(suffix) - 1)}.${suffix}`;
+}

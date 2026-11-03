@@ -1,6 +1,7 @@
 import { toFilename } from '../filename';
 import { flavorUrl, withKs, withReferrer, type VideoInfo } from '../kaltura/playback-context';
 import type { SessionsMessage } from '../messages';
+import { sessionFor } from './session';
 
 export interface ProgressiveDownload {
   filename: string;
@@ -34,11 +35,6 @@ export function signedDownloadUrl(
   entryId: string,
   frame: SessionsMessage,
 ): string {
-  const session =
-    frame.sessions.find((s) => s.entryId === entryId) ??
-    (frame.sessions.length === 1 ? frame.sessions[0] : undefined);
-  if (!session) {
-    throw new Error('The player no longer shows this video. Reopen Kalgrab and try again.');
-  }
+  const session = sessionFor(frame, entryId);
   return withKs(withReferrer(plan.url, frame.pageUrl), session.ks, session.allowedOrigins);
 }
