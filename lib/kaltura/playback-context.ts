@@ -332,7 +332,7 @@ function originsOf(urls: readonly string[]): Set<string> {
 
 /**
  * Adds the ks to a Kaltura URL. This is the only place that puts it in one, so the result
- * must never be logged or stored; erase it from the downloads history once it is used.
+ * must never be logged or stored.
  *
  * - playManifest URLs take it as a "/ks/<value>" path pair. After "playManifest" the path is
  *   key/value pairs, optionally ending in a lone file name (".../flavorIds/<ids>/a.m3u8").
