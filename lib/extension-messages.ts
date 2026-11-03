@@ -21,7 +21,8 @@ export interface DownloadRequest {
   flavorId: string;
 }
 
-export type DownloadResponse = { ok: true } | { ok: false; error: string };
+/** `cancelled` when the user closed the Save As dialog: not an error. */
+export type DownloadResponse = { ok: true; cancelled?: true } | { ok: false; error: string };
 
 export type PopupRequest = ScanRequest | DownloadRequest;
 

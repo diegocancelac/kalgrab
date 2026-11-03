@@ -122,7 +122,7 @@ function VideoItem({ tabId, item }: { tabId: number; item: ListedVideo }) {
       const response = (await browser.runtime.sendMessage(request)) as DownloadResponse | undefined;
       if (!response) setDownload({ status: 'failed', message: NO_ANSWER });
       else if (!response.ok) setDownload({ status: 'failed', message: response.error });
-      else setDownload({ status: 'started' });
+      else setDownload({ status: response.cancelled ? 'idle' : 'started' });
     } catch {
       setDownload({ status: 'failed', message: NO_ANSWER });
     }

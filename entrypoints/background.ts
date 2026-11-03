@@ -5,6 +5,7 @@ import {
   signedDownloadUrl,
   type ProgressiveDownload,
 } from '@/lib/download/progressive';
+import { waitForSaveAs } from '@/lib/download/save-as';
 import {
   readPopupRequest,
   respond,
@@ -48,8 +49,8 @@ function summarize(response: PopupResponse): string {
   return `ok, ${frames.length} frames with videos${frames.length ? ` (${frames.join('; ')})` : ''}`;
 }
 
-// The signed URL carries the ks. It stays in this function: it is never logged, stored or
-// put in an error message.
+// The signed URL carries the ks. It only goes from here to save(): it is never logged, stored
+// or put in an error message.
 async function download(request: DownloadRequest): Promise<DownloadResponse> {
   const { tabId, documentId, video, flavorId } = request;
   let plan: ProgressiveDownload;
@@ -86,19 +87,28 @@ async function download(request: DownloadRequest): Promise<DownloadResponse> {
   } catch (error) {
     return fail(messageOf(error, 'Kalgrab could not build the download link.'));
   }
+  return save(url, plan.filename);
+}
+
+// Opens Chrome's Save As dialog with the name filled in and waits for the user's answer. The
+// URL may carry the ks: it goes to downloads.download and nowhere else.
+async function save(url: string, filename: string): Promise<DownloadResponse> {
+  let id: number;
   try {
-    await browser.downloads.download({
+    id = await browser.downloads.download({
       url,
-      filename: plan.filename,
+      filename,
       conflictAction: 'uniquify',
-      saveAs: false,
+      saveAs: true,
     });
   } catch (error) {
-    trace('download: downloads.download failed', () => withoutUrls(error));
+    trace('save: downloads.download failed', () => withoutUrls(error));
     return fail('Chrome could not start the download.');
   }
-  trace('download: started');
-  return { ok: true };
+  const result = await waitForSaveAs(browser.downloads, id);
+  trace(`save: ${result}`);
+  if (result === 'failed') return fail('Chrome could not save the file.');
+  return result === 'cancelled' ? { ok: true, cancelled: true } : { ok: true };
 }
 
 export default defineBackground(() => {
