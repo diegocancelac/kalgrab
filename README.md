@@ -3,34 +3,91 @@
 Chromium extension (Manifest V3) that downloads videos from Kaltura players, including
 players embedded in cross-origin iframes such as Kaltura KAF inside an LMS.
 
-Status: early development. The extension builds, but detection and downloads are not
-implemented yet.
-
-## How it works
-
-- A content script in the page's main world reads the Kaltura player (Player v7 or the
-  legacy v2 `kWidget`) and asks the Kaltura API it already uses for the available sources.
-- Downloads use the progressive MP4 source when available, otherwise HLS segments
-  remuxed to MP4 in an offscreen document.
-- Videos with DRM or encrypted HLS streams are not downloaded.
-- The Kaltura session token (`ks`) is only sent to the Kaltura service it came from. It is
-  never logged or stored.
-
-## Permissions
-
-| Permission           | Why                                                                                                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `*://*/*` (optional) | Read the player inside iframes whose domain is not known in advance, which `activeTab` does not cover. Requested from the popup on first use; can be revoked from Chrome's settings. |
-| `scripting`          | Run the detection script in the current tab when the icon is clicked.                                                                                                                |
-| `downloads`          | Save videos.                                                                                                                                                                         |
-
-No host access is requested at install time, and nothing runs on a page until the
-Kalgrab icon is clicked.
+Click the Kalgrab icon on a page with a Kaltura video and the popup lists the videos it
+finds, with their duration and the available MP4 qualities and file sizes. Pick a quality
+and Chrome's Save As dialog opens with the video title as the file name. Caption tracks can
+be saved as SRT files the same way.
 
 ## Install
 
-Download the zip from the latest release, unzip it, open `chrome://extensions`, enable
-Developer mode and choose "Load unpacked".
+Kalgrab is not in the Chrome Web Store.
+
+1. Download `kalgrab-<version>-chrome.zip` from the
+   [latest release](../../releases/latest) and unzip it.
+2. Open `chrome://extensions` and turn on Developer mode.
+3. Click "Load unpacked" and select the unzipped folder.
+
+To update, replace the folder with the new release and click the reload button on the
+extension's card.
+
+## First use
+
+1. Open the page with the video and wait for the player to load.
+2. Click the Kalgrab icon. The first time, the popup asks for site access: click "Allow
+   access" and accept Chrome's prompt (see [Permissions](#permissions) for why it covers all
+   sites). If the popup closes when the prompt appears, click the icon again.
+3. Pick a quality and click "Download", or click a language under "Captions (SRT)".
+   Choose where to save the file in the dialog. Cancelling the dialog cancels the download.
+
+If no videos are listed and the page is still loading, wait and click the icon again.
+
+## How it works
+
+Kalgrab only runs when you click its icon. It has no content scripts in its manifest, does
+not observe network traffic, does not poll and stores nothing.
+
+1. When the popup opens, the background runs a script in every frame of the current tab
+   with `scripting.executeScript`, in the page's own JavaScript context. In frames with a
+   Kaltura Player v7 it reads the player's configuration (partner id, API URL, session) and
+   asks that Kaltura API for the entry's playback context, the same request the player makes.
+2. The popup lists each video with its MP4 qualities. Videos with DRM, encrypted streams or
+   an access-control rule that blocks them are listed with the reason and cannot be
+   downloaded.
+3. On download, the background reads the player's current session from the same frame,
+   adds it to the MP4 URL and hands the URL to Chrome's download manager. Captions are
+   fetched as WebVTT from the same API and converted to SRT.
+
+The Kaltura session token (`ks`) is only sent to the Kaltura origins the player itself uses.
+Kalgrab never logs or stores it, and the list shown in the popup does not contain it. Like
+any other download, the URL stays in Chrome's download history; Kaltura sessions expire
+after a few hours.
+
+### Compared with other video downloaders
+
+Many downloaders only see a video once it starts playing, because they watch the page's
+network requests, and some save HLS streams as `.ts` segment files. Kalgrab asks the Kaltura
+API for the sources the player knows about, so the video does not have to be played, and
+saves the progressive MP4 that Kaltura serves, in the quality you choose.
+
+## Permissions
+
+| Permission           | Why                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `*://*/*` (optional) | Run the detection script in the player's iframe. Requested from the popup on first use. |
+| `scripting`          | Run the detection script in the current tab when the icon is clicked.                   |
+| `downloads`          | Save videos and captions.                                                               |
+
+No host access is requested at install time. Site access is optional and can be revoked
+from Chrome's settings. Even with it granted, nothing runs on a page until you click the
+Kalgrab icon.
+
+Why all sites instead of only the player's site: in an LMS, the player usually lives in a
+cross-origin iframe. With LTI 1.3, that iframe starts on the LMS's own launch URL and only
+reaches the Kaltura (KAF) site after several redirects and a form submission. Until Kalgrab
+has access to that iframe, the page does not reveal which site it ended up on, so there is
+no specific site to ask for. `activeTab` only covers the top-level page. The
+`webNavigation` permission would reveal the frame's site, but Chrome shows it as "Read your
+browsing history", which is a broader warning than the problem it would solve.
+
+## Limitations
+
+- Only Kaltura Player v7 is supported. Players using the legacy v2 embed (`kWidget`) are
+  not detected yet.
+- Only videos with a progressive MP4 source can be downloaded. Videos that Kaltura only
+  serves as HLS or DASH are listed as "This video has no MP4 download"; HLS support is
+  planned.
+- Caption download is covered by tests but has not yet been verified with a real video.
+- Chromium browsers only.
 
 ## Development
 
