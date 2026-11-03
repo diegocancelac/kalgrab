@@ -1,12 +1,20 @@
 # Kalgrab
 
+[![CI](https://github.com/diegocancelac/kalgrab/actions/workflows/ci.yml/badge.svg)](https://github.com/diegocancelac/kalgrab/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/diegocancelac/kalgrab)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/diegocancelac/kalgrab)](https://github.com/diegocancelac/kalgrab/releases/latest)
+
 Chromium extension (Manifest V3) that downloads videos from Kaltura players, including
 players embedded in cross-origin iframes such as Kaltura KAF inside an LMS.
+
+<img src="docs/popup.png" alt="Kalgrab popup listing a video with its duration, a quality picker showing 720p · 6.0 MB, a Download button and English and Spanish caption buttons" width="360">
 
 Click the Kalgrab icon on a page with a Kaltura video and the popup lists the videos it
 finds, with their duration and the available MP4 qualities and file sizes. Pick a quality
 and Chrome's Save As dialog opens with the video title as the file name. Caption tracks can
 be saved as SRT files the same way.
+
+The screenshot comes from a local test page with sample data.
 
 ## Install
 
@@ -51,6 +59,9 @@ The Kaltura session token (`ks`) is only sent to the Kaltura origins the player 
 Kalgrab never logs or stores it, and the list shown in the popup does not contain it. Like
 any other download, the URL stays in Chrome's download history; Kaltura sessions expire
 after a few hours.
+
+[docs/DESIGN.md](docs/DESIGN.md) explains the design decisions: why it only runs on click,
+how page data is validated, and where the session token may go.
 
 ### Compared with other video downloaders
 
@@ -123,6 +134,8 @@ Kalgrab is meant for personal use, such as watching course recordings offline. Y
 responsible for complying with copyright law, the content owner's terms and your
 institution's policies. Do not redistribute content you do not have rights to. Kalgrab does
 not and will not bypass DRM or encryption.
+
+Kalgrab is not affiliated with or endorsed by Kaltura.
 
 ## License
 
