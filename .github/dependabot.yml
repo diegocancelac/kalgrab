@@ -8,6 +8,10 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    ignore:
+      # Must match the Node major used in CI.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     commit-message:
       prefix: chore
       include: scope
