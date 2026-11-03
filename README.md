@@ -88,7 +88,9 @@ reaches the Kaltura (KAF) site after several redirects and a form submission. Un
 has access to that iframe, the page does not reveal which site it ended up on, so there is
 no specific site to ask for. `activeTab` only covers the top-level page. The
 `webNavigation` permission would reveal the frame's site, but Chrome shows it as "Read your
-browsing history", which is a broader warning than the problem it would solve.
+browsing history", which is a broader warning than the problem it would solve. See
+[docs/DESIGN.md](docs/DESIGN.md#why-access-to-all-sites) and
+[issue #17](https://github.com/diegocancelac/kalgrab/issues/17).
 
 ## Limitations
 
