@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light dark;
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  width: 360px;
+}
+
+main {
+  padding: 12px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+p {
+  margin: 6px 0;
+}
+
+.videos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.videos li {
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.meta,
+.hint,
+.status {
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+.meta {
+  margin: 2px 0 6px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions select {
+  flex: 1;
+  min-width: 0;
+}
+
+.problem,
+.error {
+  color: #c5221f;
+}
+
+.done {
+  color: #188038;
+}
+
+@media (prefers-color-scheme: dark) {
+  .problem,
+  .error {
+    color: #f28b82;
+  }
+
+  .done {
+    color: #81c995;
+  }
+}
