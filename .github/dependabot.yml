@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # The cooldown matches minimumReleaseAge in pnpm-workspace.yaml: pnpm would refuse
+  # anything newer anyway. Security updates are not delayed by it.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
