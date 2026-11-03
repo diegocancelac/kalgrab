@@ -24,7 +24,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@preact/preset-vite": "2.10.6",
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.5",
     "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "prettier": "3.9.10",
