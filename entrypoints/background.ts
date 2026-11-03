@@ -1,6 +1,5 @@
 import { browser } from 'wxt/browser';
 import { trace, withoutUrls } from '@/lib/debug';
-import { eraseFinishedDownloads } from '@/lib/download/history';
 import {
   planProgressiveDownload,
   signedDownloadUrl,
@@ -103,17 +102,6 @@ async function download(request: DownloadRequest): Promise<DownloadResponse> {
 }
 
 export default defineBackground(() => {
-  // On every service worker start, which also covers downloads that finished while it was
-  // asleep or the browser was closed.
-  void eraseFinishedDownloads(browser.downloads, browser.runtime.id);
-
-  browser.downloads.onChanged.addListener((delta) => {
-    const state = delta.state?.current;
-    if (state === 'complete' || state === 'interrupted') {
-      void eraseFinishedDownloads(browser.downloads, browser.runtime.id, delta.id);
-    }
-  });
-
   // Every message gets an answer, a refused one included.
   browser.runtime.onMessage.addListener((value, sender, sendResponse) =>
     respond(

@@ -22,7 +22,7 @@ implemented yet.
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `*://*/*` (optional) | Read the player inside iframes whose domain is not known in advance, which `activeTab` does not cover. Requested from the popup on first use; can be revoked from Chrome's settings. |
 | `scripting`          | Run the detection script in the current tab when the icon is clicked.                                                                                                                |
-| `downloads`          | Save videos and remove the finished downloads from the history.                                                                                                                      |
+| `downloads`          | Save videos.                                                                                                                                                                         |
 
 No host access is requested at install time, and nothing runs on a page until the
 Kalgrab icon is clicked.
