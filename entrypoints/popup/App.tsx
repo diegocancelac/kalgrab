@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { browser } from 'wxt/browser';
 import type {
+  CaptionsRequest,
   DownloadRequest,
   DownloadResponse,
   ScanRequest,
@@ -99,34 +100,31 @@ function VideoList({ tabId, listing }: { tabId: number; listing: Listing }) {
   );
 }
 
-type Download =
+// One at a time per video: the background waits for the Save As dialog to be answered.
+type Save =
   | { status: 'idle' }
-  | { status: 'starting' }
-  | { status: 'started' }
+  | { status: 'saving' }
+  | { status: 'saved'; message: string }
   | { status: 'failed'; message: string };
 
 function VideoItem({ tabId, item }: { tabId: number; item: ListedVideo }) {
   const [flavorId, setFlavorId] = useState(item.qualities[0]?.flavorId ?? '');
-  const [download, setDownload] = useState<Download>({ status: 'idle' });
+  const [save, setSave] = useState<Save>({ status: 'idle' });
+  const target = { tabId, documentId: item.documentId, video: item.video };
 
-  const start = async () => {
-    setDownload({ status: 'starting' });
-    const request: DownloadRequest = {
-      type: 'download',
-      tabId,
-      documentId: item.documentId,
-      video: item.video,
-      flavorId,
-    };
+  const run = async (request: DownloadRequest | CaptionsRequest, done: string) => {
+    setSave({ status: 'saving' });
     try {
       const response = (await browser.runtime.sendMessage(request)) as DownloadResponse | undefined;
-      if (!response) setDownload({ status: 'failed', message: NO_ANSWER });
-      else if (!response.ok) setDownload({ status: 'failed', message: response.error });
-      else setDownload({ status: response.cancelled ? 'idle' : 'started' });
+      if (!response) setSave({ status: 'failed', message: NO_ANSWER });
+      else if (!response.ok) setSave({ status: 'failed', message: response.error });
+      else if (response.cancelled) setSave({ status: 'idle' });
+      else setSave({ status: 'saved', message: done });
     } catch {
-      setDownload({ status: 'failed', message: NO_ANSWER });
+      setSave({ status: 'failed', message: NO_ANSWER });
     }
   };
+  const busy = save.status === 'saving';
 
   return (
     <li>
@@ -147,13 +145,33 @@ function VideoItem({ tabId, item }: { tabId: number; item: ListedVideo }) {
               </option>
             ))}
           </select>
-          <button type="button" disabled={download.status === 'starting'} onClick={start}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run({ type: 'download', ...target, flavorId }, 'Download started.')}
+          >
             Download
           </button>
         </div>
       )}
-      {download.status === 'started' && <p class="done">Download started.</p>}
-      {download.status === 'failed' && <p class="error">{download.message}</p>}
+      {item.video.captions.length > 0 && (
+        <div class="captions">
+          <span class="meta">Captions (SRT):</span>
+          {item.video.captions.map((caption, captionIndex) => (
+            <button
+              key={captionIndex}
+              type="button"
+              disabled={busy}
+              title={`Download the ${caption.label} captions as SRT`}
+              onClick={() => run({ type: 'captions', ...target, captionIndex }, 'Captions saved.')}
+            >
+              {caption.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {save.status === 'saved' && <p class="done">{save.message}</p>}
+      {save.status === 'failed' && <p class="error">{save.message}</p>}
     </li>
   );
 }

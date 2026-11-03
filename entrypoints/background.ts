@@ -1,6 +1,13 @@
 import { browser } from 'wxt/browser';
 import { trace, withoutUrls } from '@/lib/debug';
 import {
+  fetchSrt,
+  planCaptionDownload,
+  signedCaptionUrl,
+  srtDataUrl,
+  type CaptionDownload,
+} from '@/lib/download/captions';
+import {
   planProgressiveDownload,
   signedDownloadUrl,
   type ProgressiveDownload,
@@ -9,12 +16,13 @@ import { waitForSaveAs } from '@/lib/download/save-as';
 import {
   readPopupRequest,
   respond,
+  type CaptionsRequest,
   type DownloadRequest,
   type DownloadResponse,
   type PopupResponse,
   type ScanResponse,
 } from '@/lib/extension-messages';
-import { isSessionsMessage } from '@/lib/messages';
+import { isSessionsMessage, type SessionsMessage } from '@/lib/messages';
 import { collectScan } from '@/lib/tab-scan';
 
 async function scan(tabId: number): Promise<ScanResponse> {
@@ -49,6 +57,34 @@ function summarize(response: PopupResponse): string {
   return `ok, ${frames.length} frames with videos${frames.length ? ` (${frames.join('; ')})` : ''}`;
 }
 
+// The player's sessions as they are now, from the same document the scan listed. They carry
+// the ks: they stay in the caller.
+async function readSessions(
+  tabId: number,
+  documentId: string,
+): Promise<{ frame: SessionsMessage } | { error: DownloadResponse }> {
+  let results;
+  try {
+    results = await browser.scripting.executeScript({
+      target: { tabId, documentIds: [documentId] },
+      files: ['/content-scripts/session.js'],
+      world: 'MAIN',
+    });
+  } catch (error) {
+    trace('sessions: executeScript failed', () => withoutUrls(error));
+    return { error: fail('The page has changed. Reopen Kalgrab and try again.') };
+  }
+  const frame = results[0]?.result;
+  if (!isSessionsMessage(frame)) {
+    trace('sessions: the session script returned no valid sessions', () => ({
+      frames: results.length,
+      returned: frame === null ? 'null' : typeof frame,
+    }));
+    return { error: fail('The player is no longer on the page. Reopen Kalgrab and try again.') };
+  }
+  return { frame };
+}
+
 // The signed URL carries the ks. It only goes from here to save(): it is never logged, stored
 // or put in an error message.
 async function download(request: DownloadRequest): Promise<DownloadResponse> {
@@ -60,26 +96,9 @@ async function download(request: DownloadRequest): Promise<DownloadResponse> {
     return fail(messageOf(error, 'This video cannot be downloaded.'));
   }
 
-  // The player's session as it is now, from the same document the scan listed.
-  let results;
-  try {
-    results = await browser.scripting.executeScript({
-      target: { tabId, documentIds: [documentId] },
-      files: ['/content-scripts/session.js'],
-      world: 'MAIN',
-    });
-  } catch (error) {
-    trace('download: executeScript failed', () => withoutUrls(error));
-    return fail('The page has changed. Reopen Kalgrab and try again.');
-  }
-  const frame = results[0]?.result;
-  if (!isSessionsMessage(frame)) {
-    trace('download: the session script returned no valid sessions', () => ({
-      frames: results.length,
-      returned: frame === null ? 'null' : typeof frame,
-    }));
-    return fail('The player is no longer on the page. Reopen Kalgrab and try again.');
-  }
+  const sessions = await readSessions(tabId, documentId);
+  if ('error' in sessions) return sessions.error;
+  const { frame } = sessions;
 
   let url: string;
   try {
@@ -88,6 +107,29 @@ async function download(request: DownloadRequest): Promise<DownloadResponse> {
     return fail(messageOf(error, 'Kalgrab could not build the download link.'));
   }
   return save(url, plan.filename);
+}
+
+// The signed track URL carries the ks: it goes to the Kaltura origin it came from and nowhere
+// else. The SRT saved from it does not carry it.
+async function downloadCaptions(request: CaptionsRequest): Promise<DownloadResponse> {
+  const { tabId, documentId, video, captionIndex } = request;
+  let plan: CaptionDownload;
+  try {
+    plan = planCaptionDownload(video, captionIndex);
+  } catch (error) {
+    return fail(messageOf(error, 'These captions cannot be downloaded.'));
+  }
+
+  const sessions = await readSessions(tabId, documentId);
+  if ('error' in sessions) return sessions.error;
+
+  let srt: string;
+  try {
+    srt = await fetchSrt(signedCaptionUrl(plan, video.entryId, sessions.frame), fetch);
+  } catch (error) {
+    return fail(messageOf(error, 'Kalgrab could not get the captions.'));
+  }
+  return save(srtDataUrl(srt), plan.filename);
 }
 
 // Opens Chrome's Save As dialog with the name filled in and waits for the user's answer. The
@@ -124,7 +166,9 @@ export default defineBackground(() => {
         const { request } = read;
         trace(`request: ${request.type}`);
         try {
-          return await (request.type === 'scan' ? scan(request.tabId) : download(request));
+          if (request.type === 'scan') return await scan(request.tabId);
+          if (request.type === 'download') return await download(request);
+          return await downloadCaptions(request);
         } catch (error) {
           trace(`request: ${request.type} failed`, () => withoutUrls(error));
           throw error;

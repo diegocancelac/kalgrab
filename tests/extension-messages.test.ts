@@ -119,6 +119,62 @@ describe('readPopupRequest: download', () => {
   });
 });
 
+describe('readPopupRequest: captions', () => {
+  const video = {
+    ...parsePlaybackContext(
+      JSON.parse(
+        readFileSync(
+          join(import.meta.dirname, 'fixtures', 'getPlaybackContext.multirequest.json'),
+          'utf8',
+        ),
+      ),
+    ),
+    captions: [
+      {
+        label: 'English',
+        languageCode: 'en',
+        isDefault: true,
+        url: 'https://cdnapisec.kaltura.com/api_v3/index.php/service/caption_captionasset/action/serveWebVTT/captionAssetId/1_cap00001',
+      },
+    ],
+  };
+  const captions = {
+    type: 'captions',
+    tabId: 4,
+    documentId: 'A1B2C3D4E5F60718293A4B5C6D7E8F90',
+    video,
+    captionIndex: 0,
+  };
+
+  it('reads a captions request from the popup, without fields it does not know', () => {
+    expect(readPopupRequest({ ...captions, flavorId: '1_flav0360' }, popup, ID)).toEqual({
+      ok: true,
+      request: captions,
+    });
+  });
+
+  it('refuses a track the video does not list', () => {
+    for (const captionIndex of [1, -1, 0.5, '0', undefined]) {
+      expect(readPopupRequest({ ...captions, captionIndex }, popup, ID)).toEqual(
+        refused('The captions request has no valid caption track.'),
+      );
+    }
+  });
+
+  it('checks the target like a download', () => {
+    const malformed: [unknown, string][] = [
+      [{ ...captions, tabId: -1 }, 'tab id'],
+      [{ ...captions, documentId: 'a/b' }, 'document id'],
+      [{ ...captions, video: { ...video, extra: 1 } }, 'video'],
+    ];
+    for (const [value, field] of malformed) {
+      expect(readPopupRequest(value, popup, ID)).toEqual(
+        refused(`The captions request has no valid ${field}.`),
+      );
+    }
+  });
+});
+
 describe('respond', () => {
   const unexpected = refused('Kalgrab failed unexpectedly. Reopen it and try again.');
 
